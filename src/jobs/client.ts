@@ -1,16 +1,17 @@
-import type PgBoss from 'pg-boss';
-import type { TimeZone } from '@vvo/tzdb';
+import type { TimeZone } from "@vvo/tzdb";
+import type PgBoss from "pg-boss";
 
 /**
  * Timezone type - all valid IANA timezone identifiers
  */
-export type Timezone = TimeZone['name'];
+export type Timezone = TimeZone["name"];
 
 /**
  * Schedule options with type-safe timezone
  * Accepts any IANA timezone string (e.g., 'America/New_York', 'Europe/London', 'UTC')
  */
-export interface ScheduleOptions extends Omit<PgBoss.SendOptions, 'startAfter'> {
+export interface ScheduleOptions
+  extends Omit<PgBoss.SendOptions, "startAfter"> {
   tz?: Timezone;
 }
 
@@ -18,56 +19,102 @@ export interface ScheduleOptions extends Omit<PgBoss.SendOptions, 'startAfter'> 
  * Job client that provides type-safe methods for a specific job
  * This is the shared implementation used by both bossman and createClient
  */
-export class JobClient<TInput, TOutput = void> {
-  constructor(
-    private pgBoss: PgBoss,
-    private jobName: string
-  ) {}
+export class JobClient<TInput, _TOutput = void> {
+  private readonly pgBoss: PgBoss;
+  private readonly jobName: string;
+
+  constructor(pgBoss: PgBoss, jobName: string) {
+    this.pgBoss = pgBoss;
+    this.jobName = jobName;
+  }
 
   /**
    * Send a job to the queue
    * Mirrors pg-boss send(name, data, options) but without the name
    */
-  async send(data: TInput, options?: PgBoss.SendOptions): Promise<string | null> {
-    if (options) {
-      return this.pgBoss.send(this.jobName, data as object, options);
-    } else {
-      return this.pgBoss.send(this.jobName, data as object);
+  async send(
+    data: TInput,
+    options?: PgBoss.SendOptions
+  ): Promise<string | null> {
+    if (options !== undefined) {
+      return await this.pgBoss.send(this.jobName, data as object, options);
     }
+    return await this.pgBoss.send(this.jobName, data as object);
   }
 
   /**
    * Send a job after a delay
    * Mirrors pg-boss sendAfter(name, data, options, value) but without the name
    */
-  async sendAfter(data: TInput, options: PgBoss.SendOptions | undefined, value: number | string | Date): Promise<string | null> {
+  async sendAfter(
+    data: TInput,
+    options: PgBoss.SendOptions | undefined,
+    value: number | string | Date
+  ): Promise<string | null> {
     const opts = options || {};
     // Handle different overloads
-    if (typeof value === 'number') {
-      return this.pgBoss.sendAfter(this.jobName, data as object, opts, value);
-    } else if (typeof value === 'string') {
-      return this.pgBoss.sendAfter(this.jobName, data as object, opts, value);
-    } else {
-      return this.pgBoss.sendAfter(this.jobName, data as object, opts, value);
+    if (typeof value === "number") {
+      return await this.pgBoss.sendAfter(
+        this.jobName,
+        data as object,
+        opts,
+        value
+      );
     }
+    if (typeof value === "string") {
+      return await this.pgBoss.sendAfter(
+        this.jobName,
+        data as object,
+        opts,
+        value
+      );
+    }
+    return await this.pgBoss.sendAfter(
+      this.jobName,
+      data as object,
+      opts,
+      value
+    );
   }
 
   /**
    * Send a throttled job
    * Mirrors pg-boss sendThrottled(name, data, options, seconds, key) but without the name
    */
-  async sendThrottled(data: TInput, options: PgBoss.SendOptions | undefined, seconds: number, key: string): Promise<string | null> {
+  async sendThrottled(
+    data: TInput,
+    options: PgBoss.SendOptions | undefined,
+    seconds: number,
+    key: string
+  ): Promise<string | null> {
     const opts = options || {};
-    return this.pgBoss.sendThrottled(this.jobName, data as object, opts, seconds, key);
+    return await this.pgBoss.sendThrottled(
+      this.jobName,
+      data as object,
+      opts,
+      seconds,
+      key
+    );
   }
 
   /**
    * Send a debounced job
    * Mirrors pg-boss sendDebounced(name, data, options, seconds, key) but without the name
    */
-  async sendDebounced(data: TInput, options: PgBoss.SendOptions | undefined, seconds: number, key: string): Promise<string | null> {
+  async sendDebounced(
+    data: TInput,
+    options: PgBoss.SendOptions | undefined,
+    seconds: number,
+    key: string
+  ): Promise<string | null> {
     const opts = options || {};
-    return this.pgBoss.sendDebounced(this.jobName, data as object, opts, seconds, key);
+    return await this.pgBoss.sendDebounced(
+      this.jobName,
+      data as object,
+      opts,
+      seconds,
+      key
+    );
   }
 
   // async insert(jobs: PgBoss.JobInsert<TInput>[]): Promise<void> {
@@ -120,7 +167,12 @@ export class JobClient<TInput, TOutput = void> {
     // pg-boss expects: schedule(name, cron, data, options)
     // We combine job name and schedule name to allow multiple schedules per job
     const fullScheduleName = `${this.jobName}__${scheduleName}`;
-    return this.pgBoss.schedule(fullScheduleName, cron, data as object, options as PgBoss.SendOptions);
+    return await this.pgBoss.schedule(
+      fullScheduleName,
+      cron,
+      data as object,
+      options as PgBoss.SendOptions
+    );
   }
 
   /**
@@ -129,6 +181,6 @@ export class JobClient<TInput, TOutput = void> {
    */
   async unschedule(scheduleName: string): Promise<void> {
     const fullScheduleName = `${this.jobName}__${scheduleName}`;
-    return this.pgBoss.unschedule(fullScheduleName);
+    return await this.pgBoss.unschedule(fullScheduleName);
   }
 }

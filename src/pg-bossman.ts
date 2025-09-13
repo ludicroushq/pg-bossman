@@ -1,6 +1,9 @@
-import PgBoss from 'pg-boss';
-import { PgBossmanClient, type TypedBossmanInterface } from './pg-bossman-client';
-import type { JobDefinition, JobRegistry } from './types/index';
+import PgBoss from "pg-boss";
+import {
+  PgBossmanClient,
+  type TypedBossmanInterface,
+} from "./pg-bossman-client";
+import type { JobDefinition, JobRegistry } from "./types/index";
 
 /**
  * Main registry class for defining jobs
@@ -10,13 +13,16 @@ import type { JobDefinition, JobRegistry } from './types/index';
  *   .register(job2)
  *   .build();
  */
-export class PgBossman<TJobs extends JobRegistry = {}> {
-  private connectionString?: string;
-  private pgBossOptions?: PgBoss.ConstructorOptions;
-  private jobs = new Map<string, JobDefinition>();
+export class PgBossman<TJobs extends JobRegistry = Record<string, never>> {
+  private readonly connectionString?: string;
+  private readonly pgBossOptions?: PgBoss.ConstructorOptions;
+  private readonly jobs = new Map<string, JobDefinition>();
 
-  constructor(connectionStringOrOptions: string | PgBoss.ConstructorOptions, options?: PgBoss.ConstructorOptions) {
-    if (typeof connectionStringOrOptions === 'string') {
+  constructor(
+    connectionStringOrOptions: string | PgBoss.ConstructorOptions,
+    options?: PgBoss.ConstructorOptions
+  ) {
+    if (typeof connectionStringOrOptions === "string") {
       this.connectionString = connectionStringOrOptions;
       this.pgBossOptions = options;
     } else {
@@ -34,9 +40,9 @@ export class PgBossman<TJobs extends JobRegistry = {}> {
     if (this.jobs.has(job.name)) {
       throw new Error(`Job "${job.name}" is already registered`);
     }
-    
+
     this.jobs.set(job.name, job as JobDefinition);
-    return this as any;
+    return this as PgBossman<TJobs & { [K in TName]: typeof job }>;
   }
 
   /**
@@ -45,15 +51,18 @@ export class PgBossman<TJobs extends JobRegistry = {}> {
    */
   build(): TypedBossmanInterface<TJobs> {
     let pgBoss: PgBoss;
-    
+
     if (this.connectionString && !this.pgBossOptions) {
       pgBoss = new PgBoss(this.connectionString);
     } else if (this.pgBossOptions) {
       pgBoss = new PgBoss(this.pgBossOptions);
     } else {
-      throw new Error('Either connection string or options must be provided');
+      throw new Error("Either connection string or options must be provided");
     }
-    
-    return new PgBossmanClient<TJobs>(pgBoss, this.jobs) as TypedBossmanInterface<TJobs>;
+
+    return new PgBossmanClient(
+      pgBoss,
+      this.jobs
+    ) as TypedBossmanInterface<TJobs>;
   }
 }

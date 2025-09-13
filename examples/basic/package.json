@@ -1,12 +1,4 @@
 {
-  "name": "pg-bossman-basic-example",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "worker": "tsx index.ts worker",
-    "client": "tsx index.ts client"
-  },
   "dependencies": {
     "dotenv": "^17.2.2",
     "pg-bossman": "file:../.."
@@ -15,5 +7,13 @@
     "@types/node": "^24.3.3",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
-  }
+  },
+  "name": "pg-bossman-basic-example",
+  "private": true,
+  "scripts": {
+    "client": "tsx index.ts client",
+    "worker": "tsx index.ts worker"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

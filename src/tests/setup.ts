@@ -1,5 +1,57 @@
-import { PGlite } from '@electric-sql/pglite';
-import type PgBoss from 'pg-boss';
+import { PGlite } from "@electric-sql/pglite";
+import type PgBoss from "pg-boss";
+
+const QUERY_PREVIEW_LENGTH = 200;
+
+/**
+ * Handle parameterless query execution
+ */
+async function executeWithoutParams(pglite: PGlite, text: string) {
+  const result = await pglite.exec(text);
+
+  if (Array.isArray(result) && result.length > 0) {
+    const lastResult = result.at(-1);
+    return {
+      rowCount: lastResult?.rows?.length || 0,
+      rows: lastResult?.rows || [],
+    };
+  }
+
+  return {
+    rowCount: 0,
+    rows: [],
+  };
+}
+
+/**
+ * Handle parameterized query execution
+ */
+async function executeWithParams(
+  pglite: PGlite,
+  text: string,
+  values: unknown[]
+) {
+  const result = await pglite.query(text, values);
+  return {
+    rowCount: result.rows?.length || 0,
+    rows: result.rows || [],
+  };
+}
+
+/**
+ * Format error for pg-boss
+ */
+function formatPgError(error: unknown, text: string) {
+  console.error("PGlite query error:", error);
+  console.error("Query preview:", text.substring(0, QUERY_PREVIEW_LENGTH));
+
+  return {
+    code: (error as { code?: string }).code,
+    message: error instanceof Error ? error.message : String(error),
+    position: (error as { position?: number }).position,
+    severity: (error as { severity?: string }).severity || "ERROR",
+  };
+}
 
 /**
  * Create a PGlite database adapter for pg-boss
@@ -7,58 +59,28 @@ import type PgBoss from 'pg-boss';
  */
 export async function createTestDb() {
   const pglite = new PGlite();
-  
+
   // Wait for PGlite to be ready
   await pglite.waitReady;
-  
+
   // Create the adapter that pg-boss expects
   const db = {
-    executeSql: async (text: string, values?: any[]) => {
+    executeSql: async (text: string, values?: unknown[]) => {
       try {
         // Use exec for DDL and complex multi-statement queries
         // This handles dollar-quoted strings and complex SQL properly
         if (!values || values.length === 0) {
-          // No parameters - use exec which can handle multiple statements
-          const result = await pglite.exec(text);
-          
-          // exec returns an array of results, one per statement
-          if (Array.isArray(result) && result.length > 0) {
-            const lastResult = result[result.length - 1];
-            return {
-              rows: lastResult?.rows || [],
-              rowCount: lastResult?.rows?.length || 0,
-            };
-          }
-          
-          return {
-            rows: [],
-            rowCount: 0,
-          };
-        } else {
-          // Has parameters - must be a single statement
-          const result = await pglite.query(text, values);
-          return {
-            rows: result.rows || [],
-            rowCount: result.rows?.length || 0,
-          };
+          return await executeWithoutParams(pglite, text);
         }
-      } catch (error: any) {
-        console.error('PGlite query error:', error);
-        console.error('Query preview:', text.substring(0, 200));
-        
-        // pg-boss expects specific error properties
-        const pgError = {
-          message: error.message || String(error),
-          position: error.position,
-          code: error.code,
-          severity: error.severity || 'ERROR',
-        };
-        throw pgError;
+        // Has parameters - must be a single statement
+        return await executeWithParams(pglite, text, values);
+      } catch (error) {
+        throw formatPgError(error, text);
       }
-    }
+    },
   };
 
-  return { pglite, db };
+  return { db, pglite };
 }
 
 /**
@@ -72,32 +94,35 @@ export async function waitForJob(
   timeoutMs = 5000
 ): Promise<boolean> {
   const startTime = Date.now();
-  
+
   while (Date.now() - startTime < timeoutMs) {
     const job = await pgBoss.getJobById(queueName, jobId);
-    if (job && (job.state === 'completed' || job.state === 'failed')) {
-      return job.state === 'completed';
+    if (job && (job.state === "completed" || job.state === "failed")) {
+      return job.state === "completed";
     }
-    await new Promise(resolve => setTimeout(resolve, 100));
+    const POLL_INTERVAL_MS = 100;
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
-  
+
   throw new Error(`Job ${jobId} did not complete within ${timeoutMs}ms`);
 }
 
 /**
  * Create a test job counter to track handler invocations
  */
-export function createJobCounter() {
-  const jobs: any[] = [];
-  const handler = async (input: any) => {
+export function createJobCounter<T = unknown>() {
+  const jobs: T[] = [];
+  const handler = (input: T) => {
     jobs.push(input);
-    return { processed: true };
+    return Promise.resolve({ processed: true });
   };
-  
+
   return {
-    handler,
-    getJobs: () => [...jobs],
     getCount: () => jobs.length,
-    reset: () => jobs.length = 0,
+    getJobs: () => [...jobs],
+    handler,
+    reset: () => {
+      jobs.length = 0;
+    },
   };
 }

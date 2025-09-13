@@ -1,17 +1,21 @@
-import type { 
-  JobHandler, 
-  BatchJobHandler, 
-  JobOptions, 
-  SingleJobDefinition, 
-  BatchJobDefinition 
-} from '../types/index';
+import type {
+  BatchJobDefinition,
+  BatchJobHandler,
+  JobHandler,
+  JobOptions,
+  SingleJobDefinition,
+} from "../types/index";
 
 /**
  * Fluent builder for creating job definitions
  * Usage: createJob('name').options({...}).handler(async (input) => {...})
  */
-export class JobBuilder<TName extends string, TInput = any, TOutput = void> {
-  private jobName: TName;
+export class JobBuilder<
+  TName extends string,
+  TInput = unknown,
+  TOutput = void,
+> {
+  private readonly jobName: TName;
   private jobOptions?: JobOptions;
 
   constructor(name: TName) {
@@ -35,8 +39,8 @@ export class JobBuilder<TName extends string, TInput = any, TOutput = void> {
     handler: JobHandler<I, O>
   ): SingleJobDefinition<I, O> & { name: TName } {
     return {
-      name: this.jobName,
       handler,
+      name: this.jobName,
       options: this.jobOptions,
     };
   }
@@ -49,8 +53,8 @@ export class JobBuilder<TName extends string, TInput = any, TOutput = void> {
     batchHandler: BatchJobHandler<I, O>
   ): BatchJobDefinition<I, O> & { name: TName } {
     return {
-      name: this.jobName,
       batchHandler,
+      name: this.jobName,
       options: this.jobOptions,
     };
   }
@@ -60,6 +64,8 @@ export class JobBuilder<TName extends string, TInput = any, TOutput = void> {
  * Factory function to create a job builder
  * @param name - The unique name of the job
  */
-export function createJob<TName extends string>(name: TName): JobBuilder<TName> {
+export function createJob<TName extends string>(
+  name: TName
+): JobBuilder<TName> {
   return new JobBuilder(name);
 }

@@ -1,0 +1,59 @@
+{
+  "name": "pg-bossman",
+  "version": "0.0.0",
+  "description": "a pg-boss wrapper that comes with a type safe API, reasonable defaults, and a dashboard",
+  "keywords": [
+    "pg-boss",
+    "bull-board",
+    "postgres",
+    "pg",
+    "bull",
+    "bullmq",
+    "worker",
+    "nodejs",
+    "typescript"
+  ],
+  "homepage": "https://github.com/ludicroushq/pg-bossman#readme",
+  "bugs": {
+    "url": "https://github.com/ludicroushq/pg-bossman/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ludicroushq/pg-bossman.git"
+  },
+  "license": "MIT",
+  "author": "Manthan Mallikarjun",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.8",
+    "@types/node": "^24.3.3",
+    "@vitest/ui": "^3.2.4",
+    "@vvo/tzdb": "^6.183.0",
+    "tsdown": "^0.15.1",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "pg-boss": "^10.3.3"
+  }
+}

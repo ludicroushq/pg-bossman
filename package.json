@@ -3,9 +3,6 @@
   "bugs": {
     "url": "https://github.com/ludicroushq/pg-bossman/issues"
   },
-  "dependencies": {
-    "pg-boss": "^10.3.3"
-  },
   "description": "a pg-boss wrapper that comes with a type safe API, reasonable defaults, and a dashboard",
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
@@ -14,6 +11,7 @@
     "@vitest/ui": "^3.2.4",
     "@vvo/tzdb": "^6.183.0",
     "lefthook": "^1.13.0",
+    "pg-boss": "^10.3.3",
     "tsdown": "^0.15.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
@@ -47,6 +45,9 @@
   "module": "./dist/index.js",
   "name": "pg-bossman",
   "packageManager": "pnpm@10.0.0",
+  "peerDependencies": {
+    "pg-boss": "^10.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ludicroushq/pg-bossman.git"

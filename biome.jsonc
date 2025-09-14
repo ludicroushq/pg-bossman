@@ -5,6 +5,13 @@
     "ignoreUnknown": true,
     "includes": ["**/*"]
   },
+  "assist": {
+    "actions": {
+      "source": {
+        "useSortedKeys": "on"
+      }
+    }
+  },
   "linter": {
     "rules": {
       "performance": {

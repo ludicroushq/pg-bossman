@@ -1,19 +1,20 @@
 {
+  "name": "pg-bossman-basic-example",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "worker": "tsx src/worker/index.ts worker",
+    "client": "tsx src/worker/index.ts client",
+    "schedule": "tsx src/worker/index.ts schedule",
+    "dev": "tsx watch src/worker/index.ts worker"
+  },
   "dependencies": {
-    "dotenv": "^17.2.2",
     "pg-bossman": "file:../.."
   },
   "devDependencies": {
     "@types/node": "^24.3.3",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
-  },
-  "name": "pg-bossman-basic-example",
-  "private": true,
-  "scripts": {
-    "client": "tsx index.ts client",
-    "worker": "tsx index.ts worker"
-  },
-  "type": "module",
-  "version": "1.0.0"
+  }
 }

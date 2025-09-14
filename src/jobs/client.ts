@@ -1,25 +1,10 @@
-import type { TimeZone } from "@vvo/tzdb";
 import type PgBoss from "pg-boss";
-
-/**
- * Timezone type - all valid IANA timezone identifiers
- */
-export type Timezone = TimeZone["name"];
-
-/**
- * Schedule options with type-safe timezone
- * Accepts any IANA timezone string (e.g., 'America/New_York', 'Europe/London', 'UTC')
- */
-export interface ScheduleOptions
-  extends Omit<PgBoss.SendOptions, "startAfter"> {
-  tz?: Timezone;
-}
 
 /**
  * Job client that provides type-safe methods for a specific job
  * This is the shared implementation used by both bossman and createClient
  */
-export class JobClient<TInput, _TOutput = void> {
+export class JobClient<TInput = void, _TOutput = void> {
   private readonly pgBoss: PgBoss;
   private readonly jobName: string;
 
@@ -30,157 +15,62 @@ export class JobClient<TInput, _TOutput = void> {
 
   /**
    * Send a job to the queue
-   * Mirrors pg-boss send(name, data, options) but without the name
+   * Can accept a single item or an array of items
    */
   async send(
-    data: TInput,
+    data: TInput extends void ? null : TInput | TInput[],
     options?: PgBoss.SendOptions
-  ): Promise<string | null> {
-    if (options !== undefined) {
-      return await this.pgBoss.send(this.jobName, data as object, options);
-    }
-    return await this.pgBoss.send(this.jobName, data as object);
-  }
+  ): Promise<string | string[] | null> {
+    // Handle void input type - require null
+    const payload = data === null ? {} : data;
 
-  /**
-   * Send a job after a delay
-   * Mirrors pg-boss sendAfter(name, data, options, value) but without the name
-   */
-  async sendAfter(
-    data: TInput,
-    options: PgBoss.SendOptions | undefined,
-    value: number | string | Date
-  ): Promise<string | null> {
-    const opts = options || {};
-    // Handle different overloads
-    if (typeof value === "number") {
-      return await this.pgBoss.sendAfter(
-        this.jobName,
-        data as object,
-        opts,
-        value
+    // Handle array input - send multiple jobs
+    if (Array.isArray(payload)) {
+      const jobIds = await Promise.all(
+        payload.map((item) =>
+          // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
+          options
+            ? this.pgBoss.send(this.jobName, item as object, options)
+            : this.pgBoss.send(this.jobName, item as object)
+        )
       );
+      return jobIds.filter((id) => id !== null) as string[];
     }
-    if (typeof value === "string") {
-      return await this.pgBoss.sendAfter(
-        this.jobName,
-        data as object,
-        opts,
-        value
-      );
-    }
-    return await this.pgBoss.sendAfter(
-      this.jobName,
-      data as object,
-      opts,
-      value
-    );
+
+    // Single item
+    // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
+    return options
+      ? await this.pgBoss.send(this.jobName, payload as object, options)
+      : await this.pgBoss.send(this.jobName, payload as object);
   }
-
-  /**
-   * Send a throttled job
-   * Mirrors pg-boss sendThrottled(name, data, options, seconds, key) but without the name
-   */
-  async sendThrottled(
-    data: TInput,
-    options: PgBoss.SendOptions | undefined,
-    seconds: number,
-    key: string
-  ): Promise<string | null> {
-    const opts = options || {};
-    return await this.pgBoss.sendThrottled(
-      this.jobName,
-      data as object,
-      opts,
-      seconds,
-      key
-    );
-  }
-
-  /**
-   * Send a debounced job
-   * Mirrors pg-boss sendDebounced(name, data, options, seconds, key) but without the name
-   */
-  async sendDebounced(
-    data: TInput,
-    options: PgBoss.SendOptions | undefined,
-    seconds: number,
-    key: string
-  ): Promise<string | null> {
-    const opts = options || {};
-    return await this.pgBoss.sendDebounced(
-      this.jobName,
-      data as object,
-      opts,
-      seconds,
-      key
-    );
-  }
-
-  // async insert(jobs: PgBoss.JobInsert<TInput>[]): Promise<void> {
-  //   return this.pgBoss.insert(jobs.map(j => ({ ...j, name: this.jobName })));
-  // }
-
-  // async fetch(options?: PgBoss.FetchOptions): Promise<PgBoss.Job<TInput>[] | null> {
-  //   return this.pgBoss.fetch(this.jobName, options);
-  // }
-
-  // async cancel(id: string | string[]): Promise<void> {
-  //   return this.pgBoss.cancel(this.jobName, id);
-  // }
-
-  // async resume(id: string | string[]): Promise<void> {
-  //   return this.pgBoss.resume(this.jobName, id);
-  // }
-
-  // async retry(id: string | string[]): Promise<void> {
-  //   return this.pgBoss.fail(this.jobName, id);
-  // }
-
-  // async complete(id: string | string[], data?: TOutput): Promise<void> {
-  //   return this.pgBoss.complete(this.jobName, id, data);
-  // }
-
-  // async fail(id: string | string[], data?: any): Promise<void> {
-  //   return this.pgBoss.fail(this.jobName, id, data);
-  // }
-
-  // async deleteJob(id: string | string[]): Promise<void> {
-  //   return this.pgBoss.deleteJob(this.jobName, id);
-  // }
-
-  // async getJobById(id: string, options?: { includeArchive?: boolean }): Promise<PgBoss.Job<TInput> | null> {
-  //   return this.pgBoss.getJobById(this.jobName, id, options);
-  // }
 
   /**
    * Schedule a job with a cron expression
-   * Mirrors pg-boss schedule(name, cron, data, options) but without the queue name
-   * To support multiple schedules per job, use a unique schedule name
    */
   async schedule(
-    scheduleName: string,
+    name: string,
     cron: string,
-    data: TInput,
-    options?: ScheduleOptions
+    data: TInput extends void ? null : TInput,
+    options?: PgBoss.ScheduleOptions
   ): Promise<void> {
-    // pg-boss expects: schedule(name, cron, data, options)
-    // We combine job name and schedule name to allow multiple schedules per job
-    const fullScheduleName = `${this.jobName}__${scheduleName}`;
+    // Handle void input type - require null
+    const payload = data === null ? {} : data;
+
+    // Use the schedule name directly with the job name prefix
+    const fullScheduleName = `${this.jobName}__${name}`;
     return await this.pgBoss.schedule(
       fullScheduleName,
       cron,
-      data as object,
-      options as PgBoss.SendOptions
+      payload as object,
+      options
     );
   }
 
   /**
    * Unschedule a scheduled job
-   * Mirrors pg-boss unschedule(name) but with schedule name
    */
-  async unschedule(scheduleName: string): Promise<void> {
-    const fullScheduleName = `${this.jobName}__${scheduleName}`;
+  async unschedule(name: string): Promise<void> {
+    const fullScheduleName = `${this.jobName}__${name}`;
     return await this.pgBoss.unschedule(fullScheduleName);
   }
 }

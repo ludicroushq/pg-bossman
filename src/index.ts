@@ -1,12 +1,12 @@
 // Main exports
 
+// Client structure types
+export type { ClientStructure } from "./client/build-proxy";
+export { createBossman, type PgBossmanInstance } from "./create-bossman";
 export { createClient } from "./create-client";
-// Job builder exports
 export { createJob, JobBuilder } from "./jobs/builder";
-export { JobClient, type ScheduleOptions, type Timezone } from "./jobs/client";
-export { PgBossman } from "./pg-bossman";
-// Internal types that might be useful for advanced usage
-export type { TypedBossmanInterface } from "./pg-bossman-client";
+// Job client exports (for advanced usage)
+export { JobClient } from "./jobs/client";
 // Type exports
 export type {
   BatchJobDefinition,
@@ -19,5 +19,8 @@ export type {
   JobRegistry,
   SingleJobDefinition,
 } from "./types/index";
-// Export the isBatchJob function
-export { isBatchJob } from "./types/index";
+// Helper functions
+export { isBatchJob, isPromise } from "./types/index";
+// Router types
+export type { JobRouter, JobWithoutName } from "./types/router";
+export { flattenRouter, isJobDefinition } from "./types/router";

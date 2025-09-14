@@ -1,36 +1,29 @@
-import PgBoss from "pg-boss";
-import {
-  PgBossmanClient,
-  type TypedBossmanInterface,
-} from "./pg-bossman-client";
-import type { JobDefinition, JobRegistry } from "./types/index";
+import type PgBoss from "pg-boss";
+import { buildProxy, type ClientStructure } from "./client/build-proxy";
+import { createLazyStarter, createPgBoss } from "./core/create-pg-boss";
+import type { PgBossmanInstance } from "./create-bossman";
+import type { JobRouter } from "./types/router";
 
 /**
- * Create a lightweight client without handlers
- * This uses the same PgBossmanClient class but without job handlers
+ * Create a lightweight client without handlers (send-only)
+ * This creates a client that can only send jobs, not process them
  *
  * Usage:
  * import type { bossman } from './jobs';
- * const client = createClient<typeof bossman>('postgres://...');
+ * const client = createClient<typeof bossman>({
+ *   connectionString: 'postgres://...'
+ * });
  */
-export function createClient<T extends TypedBossmanInterface<JobRegistry>>(
-  connectionString: string,
-  options?: PgBoss.ConstructorOptions
-): T extends TypedBossmanInterface<infer TJobs>
-  ? TypedBossmanInterface<TJobs>
-  : never {
-  const pgBoss =
-    options !== undefined ? new PgBoss(options) : new PgBoss(connectionString);
+export function createClient<TBossman extends PgBossmanInstance<JobRouter>>(
+  options: PgBoss.ConstructorOptions
+): TBossman extends PgBossmanInstance<infer R> ? ClientStructure<R> : never {
+  const pgBoss = createPgBoss(options, "client");
+  const ensureStarted = createLazyStarter(pgBoss);
 
-  // Extract job names from the type (no handlers needed for client)
-  // Since this is type-only, we create empty job definitions
-  const jobs = new Map<string, JobDefinition>();
-
-  // The actual job names will be inferred from the type parameter
-  // For now, we create an empty PgBossmanClient that will have methods added dynamically
-  return new PgBossmanClient(pgBoss, jobs) as T extends TypedBossmanInterface<
-    infer TJobs
-  >
-    ? TypedBossmanInterface<TJobs>
-    : never;
+  // Build and return the client structure using shared proxy logic
+  // We need the type assertion here because TypeScript can't infer the conditional type
+  return buildProxy(
+    pgBoss,
+    ensureStarted
+  ) as TBossman extends PgBossmanInstance<infer R> ? ClientStructure<R> : never;
 }

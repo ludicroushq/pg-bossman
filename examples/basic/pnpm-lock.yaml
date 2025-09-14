@@ -13,7 +13,7 @@ importers:
         version: 17.2.2
       pg-bossman:
         specifier: file:../..
-        version: file:../..
+        version: file:../..(pg-boss@10.3.3)
     devDependencies:
       '@types/node':
         specifier: ^24.3.3
@@ -217,6 +217,8 @@ packages:
 
   pg-bossman@file:../..:
     resolution: {directory: ../.., type: directory}
+    peerDependencies:
+      pg-boss: ^10.0.0
 
   pg-cloudflare@1.2.7:
     resolution: {integrity: sha512-YgCtzMH0ptvZJslLM1ffsY4EuGaU0cx4XSdXLRFae8bPP4dS5xL1tNB3k2o/N64cHJpwU7dxKli/nZ2lUa5fLg==}
@@ -436,11 +438,9 @@ snapshots:
     transitivePeerDependencies:
       - pg-native
 
-  pg-bossman@file:../..:
+  pg-bossman@file:../..(pg-boss@10.3.3):
     dependencies:
       pg-boss: 10.3.3
-    transitivePeerDependencies:
-      - pg-native
 
   pg-cloudflare@1.2.7:
     optional: true

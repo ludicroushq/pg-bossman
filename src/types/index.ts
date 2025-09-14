@@ -1,12 +1,12 @@
 import type PgBoss from "pg-boss";
 
-// Job handler types
+// Job handler types - can be sync or async
 export type JobHandler<TInput, TOutput = void> = (
   input: TInput
-) => Promise<TOutput>;
+) => TOutput | Promise<TOutput>;
 export type BatchJobHandler<TInput, TOutput = void> = (
   inputs: TInput[]
-) => Promise<TOutput[]>;
+) => TOutput[] | Promise<TOutput[]>;
 
 // Job options that pass through to pg-boss
 export interface JobOptions extends Partial<PgBoss.SendOptions> {
@@ -50,3 +50,13 @@ export type ExtractInput<T> = T extends JobDefinition<infer TInput, unknown>
 export type ExtractOutput<T> = T extends JobDefinition<unknown, infer TOutput>
   ? TOutput
   : never;
+
+// Helper to check if a value is a promise
+export function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
+}

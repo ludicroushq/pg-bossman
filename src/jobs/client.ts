@@ -4,12 +4,12 @@ import type PgBoss from "pg-boss";
  * Job client that provides type-safe methods for a specific job
  * This is the shared implementation used by both bossman and createClient
  */
-export class JobClient<TInput = void, _TOutput = void> {
-  private readonly pgBoss: PgBoss;
+export class JobClient<TInput = unknown, _TOutput = void> {
+  private readonly getPgBoss: () => Promise<PgBoss>;
   private readonly jobName: string;
 
-  constructor(pgBoss: PgBoss, jobName: string) {
-    this.pgBoss = pgBoss;
+  constructor(getPgBoss: () => Promise<PgBoss>, jobName: string) {
+    this.getPgBoss = getPgBoss;
     this.jobName = jobName;
   }
 
@@ -18,11 +18,12 @@ export class JobClient<TInput = void, _TOutput = void> {
    * Can accept a single item or an array of items
    */
   async send(
-    data: TInput extends void ? null : TInput | TInput[],
+    data?: TInput | TInput[],
     options?: PgBoss.SendOptions
   ): Promise<string | string[] | null> {
-    // Handle void input type - require null
-    const payload = data === null ? {} : data;
+    const pgBoss = await this.getPgBoss();
+    // Support empty payloads without special-casing types
+    const payload = (data as unknown) ?? {};
 
     // Handle array input - send multiple jobs
     if (Array.isArray(payload)) {
@@ -30,8 +31,8 @@ export class JobClient<TInput = void, _TOutput = void> {
         payload.map((item) =>
           // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
           options
-            ? this.pgBoss.send(this.jobName, item as object, options)
-            : this.pgBoss.send(this.jobName, item as object)
+            ? pgBoss.send(this.jobName, item as object, options)
+            : pgBoss.send(this.jobName, item as object)
         )
       );
       return jobIds.filter((id) => id !== null) as string[];
@@ -40,26 +41,27 @@ export class JobClient<TInput = void, _TOutput = void> {
     // Single item
     // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
     return options
-      ? await this.pgBoss.send(this.jobName, payload as object, options)
-      : await this.pgBoss.send(this.jobName, payload as object);
+      ? await pgBoss.send(this.jobName, payload as object, options)
+      : await pgBoss.send(this.jobName, payload as object);
   }
 
   /**
    * Schedule a job with a cron expression
    */
   async schedule(
-    name: string,
+    _name: string,
     cron: string,
-    data: TInput extends void ? null : TInput,
+    data?: TInput,
     options?: PgBoss.ScheduleOptions
   ): Promise<void> {
-    // Handle void input type - require null
-    const payload = data === null ? {} : data;
+    const pgBoss = await this.getPgBoss();
+    // Support empty payloads without special-casing types
+    const payload = (data as unknown) ?? {};
 
-    // Use the schedule name directly with the job name prefix
-    const fullScheduleName = `${this.jobName}__${name}`;
-    return await this.pgBoss.schedule(
-      fullScheduleName,
+    // In pg-boss v10+, schedules are tied to queue names.
+    // Use the queue/job name directly to ensure the queue exists.
+    return await pgBoss.schedule(
+      this.jobName,
       cron,
       payload as object,
       options
@@ -69,8 +71,9 @@ export class JobClient<TInput = void, _TOutput = void> {
   /**
    * Unschedule a scheduled job
    */
-  async unschedule(name: string): Promise<void> {
-    const fullScheduleName = `${this.jobName}__${name}`;
-    return await this.pgBoss.unschedule(fullScheduleName);
+  async unschedule(_name?: string): Promise<void> {
+    const pgBoss = await this.getPgBoss();
+    // In pg-boss v10+, unschedule by queue/job name
+    return await pgBoss.unschedule(this.jobName);
   }
 }

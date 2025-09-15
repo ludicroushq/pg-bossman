@@ -10,28 +10,13 @@ import { cleanupOldFilesJob } from "./cleanup-old-files-job";
 import { processPaymentJob } from "./process-payment-job";
 import { resizeImageJob } from "./resize-image-job";
 import { sendPasswordResetJob } from "./send-password-reset-job";
-// Organize jobs by category for the router
 import { sendWelcomeEmailJob } from "./send-welcome-email-job";
 
+// Flat jobs map keyed by queue names
 export const jobs = {
-  // Email jobs
-  emails: {
-    sendPasswordReset: sendPasswordResetJob,
-    sendWelcome: sendWelcomeEmailJob,
-  },
-
-  // Maintenance jobs
-  maintenance: {
-    cleanupOldFiles: cleanupOldFilesJob,
-  },
-
-  // Media processing jobs
-  media: {
-    resizeImage: resizeImageJob,
-  },
-
-  // Payment jobs
-  payments: {
-    processPayment: processPaymentJob,
-  },
+  "emails.sendPasswordReset": sendPasswordResetJob,
+  "emails.sendWelcome": sendWelcomeEmailJob,
+  "maintenance.cleanupOldFiles": cleanupOldFilesJob,
+  "media.resizeImage": resizeImageJob,
+  "payments.processPayment": processPaymentJob,
 };

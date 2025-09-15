@@ -1,6 +1,8 @@
+import type PgBoss from "pg-boss";
 import type {
   BatchJobDefinition,
   BatchJobHandler,
+  JobDefinition,
   JobHandler,
   JobOptions,
   SingleJobDefinition,
@@ -12,6 +14,11 @@ import type {
  */
 export class JobBuilder<TInput = unknown, TOutput = void> {
   private jobOptions?: JobOptions;
+  private jobSchedule?: {
+    cron: string;
+    data?: TInput;
+    options?: PgBoss.ScheduleOptions;
+  };
 
   /**
    * Set job options (retry, priority, etc)
@@ -23,16 +30,34 @@ export class JobBuilder<TInput = unknown, TOutput = void> {
   }
 
   /**
+   * Define a schedule for this job (one per queue)
+   */
+  schedule(
+    cron: string,
+    data?: TInput,
+    options?: PgBoss.ScheduleOptions
+  ): JobBuilder<TInput, TOutput> {
+    this.jobSchedule = { cron, data, options };
+    return this;
+  }
+
+  /**
    * Define a single job handler (terminal method)
    * The handler will be called once per job
    */
   handler<I, O = void>(
     handler: JobHandler<I, O>
   ): Omit<SingleJobDefinition<I, O>, "name"> {
-    return {
+    const def: Omit<SingleJobDefinition<I, O>, "name"> & {
+      schedule?: JobDefinition["schedule"];
+    } = {
       handler,
       options: this.jobOptions,
     };
+    if (this.jobSchedule) {
+      def.schedule = this.jobSchedule as unknown as JobDefinition["schedule"];
+    }
+    return def;
   }
 
   /**
@@ -42,10 +67,16 @@ export class JobBuilder<TInput = unknown, TOutput = void> {
   batchHandler<I, O = void>(
     batchHandler: BatchJobHandler<I, O>
   ): Omit<BatchJobDefinition<I, O>, "name"> {
-    return {
+    const def: Omit<BatchJobDefinition<I, O>, "name"> & {
+      schedule?: JobDefinition["schedule"];
+    } = {
       batchHandler,
       options: this.jobOptions,
     };
+    if (this.jobSchedule) {
+      def.schedule = this.jobSchedule as unknown as JobDefinition["schedule"];
+    }
+    return def;
   }
 }
 

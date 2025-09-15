@@ -19,17 +19,26 @@ export type SingleJobDefinition<TInput = unknown, TOutput = void> = {
   name: string;
   handler: JobHandler<TInput, TOutput>;
   options?: JobOptions;
+  schedule?: JobSchedule<TInput>;
 };
 
 export type BatchJobDefinition<TInput = unknown, TOutput = void> = {
   name: string;
   batchHandler: BatchJobHandler<TInput, TOutput>;
   options?: JobOptions;
+  schedule?: JobSchedule<TInput>;
 };
 
 export type JobDefinition<TInput = unknown, TOutput = void> =
   | SingleJobDefinition<TInput, TOutput>
   | BatchJobDefinition<TInput, TOutput>;
+
+// Optional attached schedule config on a job
+export type JobSchedule<TInput = unknown> = {
+  cron: string;
+  data?: TInput;
+  options?: PgBoss.ScheduleOptions;
+};
 
 // Helper to check if job is batch
 export function isBatchJob<TInput, TOutput>(
@@ -60,3 +69,16 @@ export function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
     typeof value.then === "function"
   );
 }
+
+// Flat jobs map
+export type JobWithoutName = Omit<JobDefinition, "name">;
+export type JobsMap = Record<string, JobWithoutName>;
+
+// Helper to infer input from JobWithoutName
+export type InferInputFromJob<J> = J extends {
+  handler: (input: infer I) => unknown;
+}
+  ? I
+  : J extends { batchHandler: (inputs: Array<infer I>) => unknown }
+    ? I
+    : unknown;

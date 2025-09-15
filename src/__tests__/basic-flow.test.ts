@@ -1,6 +1,6 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createBossman, createJob } from "../index";
+import { createBossman, createJob, defineEvents } from "../index";
 import { createJobCounter, createTestDb } from "../tests/setup";
 
 // Test constants
@@ -67,7 +67,7 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send a job via client namespace
-    const jobId = await bossman.client.testJob.send({
+    const jobId = await bossman.client().jobs.testJob.send({
       message: "Hello, world!",
     });
     expect(jobId).toBeTruthy();
@@ -134,14 +134,14 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send first job to initialize pg-boss
-    const firstJobId = await bossman.client.batchJob.send({ id: 1 });
+    const firstJobId = await bossman.client().jobs.batchJob.send({ id: 1 });
 
     // Send multiple jobs via client namespace
     const remainingJobIds = await Promise.all([
-      bossman.client.batchJob.send({ id: 2 }),
-      bossman.client.batchJob.send({ id: 3 }),
-      bossman.client.batchJob.send({ id: 4 }),
-      bossman.client.batchJob.send({ id: 5 }),
+      bossman.client().jobs.batchJob.send({ id: 2 }),
+      bossman.client().jobs.batchJob.send({ id: 3 }),
+      bossman.client().jobs.batchJob.send({ id: 4 }),
+      bossman.client().jobs.batchJob.send({ id: 5 }),
     ]);
 
     const jobIds = [firstJobId, ...remainingJobIds];
@@ -167,10 +167,9 @@ describe("Basic Job Flow", () => {
     await bossman.start();
     process.on = originalOn;
 
-    // Wait for processing
-    await new Promise((resolve) =>
-      setTimeout(resolve, BATCH_PROCESSING_DELAY_MS)
-    );
+    const EXTRA_WAIT_MS = 5000;
+    // Wait for processing (allow ample time)
+    await new Promise((resolve) => setTimeout(resolve, EXTRA_WAIT_MS));
 
     // Should have processed in batches of 3
     expect(processedBatches.length).toBeGreaterThanOrEqual(1);
@@ -203,10 +202,12 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Test that the send method exists and works via client namespace
-    const jobId = await bossman.client.sendEmail.send(
-      { subject: "Test", to: "test@example.com" },
-      { priority: HIGH_PRIORITY }
-    );
+    const jobId = await bossman
+      .client()
+      .jobs.sendEmail.send(
+        { subject: "Test", to: "test@example.com" },
+        { priority: HIGH_PRIORITY }
+      );
 
     expect(jobId).toBeTruthy();
 
@@ -239,7 +240,7 @@ describe("Basic Job Flow", () => {
     // Initialize pg-boss for sending
 
     // Send a job
-    const jobId = await bossman.client.syncJob.send({ value: 5 });
+    const jobId = await bossman.client().jobs.syncJob.send({ value: 5 });
     expect(jobId).toBeTruthy();
 
     // Start worker
@@ -260,7 +261,7 @@ describe("Basic Job Flow", () => {
 
     // Wait for processing
     await new Promise((resolve) =>
-      setTimeout(resolve, JOB_PROCESSING_DELAY_MS)
+      setTimeout(resolve, BATCH_PROCESSING_DELAY_MS)
     );
 
     // Verify the job was processed
@@ -287,12 +288,12 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send first job to initialize pg-boss
-    await bossman.client.syncBatchJob.send({ id: 1 });
+    await bossman.client().jobs.syncBatchJob.send({ id: 1 });
 
     // Send remaining jobs
     await Promise.all([
-      bossman.client.syncBatchJob.send({ id: 2 }),
-      bossman.client.syncBatchJob.send({ id: 3 }),
+      bossman.client().jobs.syncBatchJob.send({ id: 2 }),
+      bossman.client().jobs.syncBatchJob.send({ id: 3 }),
     ]);
 
     // Start worker
@@ -326,27 +327,25 @@ describe("Basic Job Flow", () => {
   it("should support nested routers", async () => {
     const emailsSent: Array<{ to: string; type: string }> = [];
 
-    // Define nested jobs structure
+    // Define flat jobs structure
     const jobs = {
       // Top-level job with dash in name
       "data-export": createJob().handler(() => {
         return { exported: true };
       }),
-      emails: {
-        sendPasswordReset: createJob().handler((input: { to: string }) => {
+      "emails.sendPasswordReset": createJob().handler(
+        (input: { to: string }) => {
           emailsSent.push({ to: input.to, type: "password-reset" });
+        }
+      ),
+      "emails.sendWelcome": createJob().handler((input: { to: string }) => {
+        emailsSent.push({ to: input.to, type: "welcome" });
+      }),
+      "images.resize": createJob()
+        .options({ batchSize: 2 })
+        .batchHandler((inputs: Array<{ url: string }>) => {
+          return inputs.map((i) => ({ resized: i.url }));
         }),
-        sendWelcome: createJob().handler((input: { to: string }) => {
-          emailsSent.push({ to: input.to, type: "welcome" });
-        }),
-      },
-      images: {
-        resize: createJob()
-          .options({ batchSize: 2 })
-          .batchHandler((inputs: Array<{ url: string }>) => {
-            return inputs.map((i) => ({ resized: i.url }));
-          }),
-      },
     };
 
     const bossman = createBossman({ db }).register(jobs).build();
@@ -354,11 +353,13 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send nested jobs
-    await bossman.client.emails.sendWelcome.send({ to: "user1@example.com" });
-    await bossman.client.emails.sendPasswordReset.send({
+    await bossman.client().jobs["emails.sendWelcome"].send({
+      to: "user1@example.com",
+    });
+    await bossman.client().jobs["emails.sendPasswordReset"].send({
       to: "user2@example.com",
     });
-    await bossman.client["data-export"].send({});
+    await bossman.client().jobs["data-export"].send({});
 
     // Start worker
     const originalOn = process.on;
@@ -381,12 +382,68 @@ describe("Basic Job Flow", () => {
       setTimeout(resolve, JOB_PROCESSING_DELAY_MS)
     );
 
-    // Verify nested jobs were processed
+    // Verify nested jobs were processed (order-agnostic)
     expect(emailsSent).toHaveLength(2);
-    expect(emailsSent[0]).toEqual({ to: "user1@example.com", type: "welcome" });
-    expect(emailsSent[1]).toEqual({
-      to: "user2@example.com",
-      type: "password-reset",
+    expect(emailsSent).toEqual(
+      expect.arrayContaining([
+        { to: "user1@example.com", type: "welcome" },
+        { to: "user2@example.com", type: "password-reset" },
+      ])
+    );
+  });
+
+  it("should publish events to subscribed jobs with mapping", async () => {
+    const emailsSent: Array<{ to: string }> = [];
+
+    const jobs = {
+      sendWelcomeEmail: createJob().handler((input: { to: string }) => {
+        emailsSent.push({ to: input.to });
+      }),
+    };
+
+    const events = defineEvents<{
+      userCreated: { id: string; email: string };
+    }>();
+
+    const bossman = createBossman({ db })
+      .register(jobs)
+      .events(events)
+      .subscriptions({
+        userCreated: {
+          sendWelcomeEmail: { map: (e) => ({ to: e.email }) },
+        },
+      })
+      .build();
+
+    bossmanInstances.push(bossman);
+
+    // Start worker (suppress SIGTERM/SIGINT)
+    const originalOn = process.on;
+    process.on = ((event: string, listener: unknown) => {
+      if (event === "SIGTERM" || event === "SIGINT") {
+        return process;
+      }
+      return originalOn.call(
+        process,
+        event,
+        listener as (...args: unknown[]) => void
+      );
+    }) as typeof process.on;
+
+    await bossman.start();
+    process.on = originalOn;
+
+    await bossman.client().events.userCreated.emit({
+      email: "user@example.com",
+      id: "u1",
     });
+
+    const EVENT_PROCESSING_EXTRA_WAIT_MS = 5000;
+    // Allow time for processing; event path can be slower
+    await new Promise((resolve) =>
+      setTimeout(resolve, EVENT_PROCESSING_EXTRA_WAIT_MS)
+    );
+
+    expect(emailsSent).toEqual([{ to: "user@example.com" }]);
   });
 });

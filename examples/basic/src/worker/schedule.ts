@@ -5,7 +5,7 @@ export async function setupSchedules() {
   console.log("⏰ Setting up scheduled jobs...");
 
   // Daily cleanup at 3 AM
-  await bossman.client.maintenance.cleanupOldFiles.schedule(
+  await bossman.client["maintenance.cleanupOldFiles"].schedule(
     "daily-cleanup",
     "0 3 * * *", // Every day at 3:00 AM
     {
@@ -18,7 +18,7 @@ export async function setupSchedules() {
   // Process pending payments every 5 minutes
   // Note: In production, you'd fetch pending payments from your database
   // This is just an example of periodic job scheduling
-  await bossman.client.payments.processPayment.schedule(
+  await bossman.client["payments.processPayment"].schedule(
     "check-pending-payments",
     "*/5 * * * *", // Every 5 minutes
     {
@@ -49,8 +49,10 @@ export async function setupSchedules() {
 export async function clearSchedules() {
   console.log("🧹 Clearing all scheduled jobs...");
 
-  await bossman.client.maintenance.cleanupOldFiles.unschedule("daily-cleanup");
-  await bossman.client.payments.processPayment.unschedule(
+  await bossman.client["maintenance.cleanupOldFiles"].unschedule(
+    "daily-cleanup"
+  );
+  await bossman.client["payments.processPayment"].unschedule(
     "check-pending-payments"
   );
 

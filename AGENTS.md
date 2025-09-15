@@ -28,10 +28,8 @@ The worker processes jobs and can also send jobs:
 ```typescript
 const bossman = createBossman({ connectionString })
   .register({
-    myJob,
-    nested: {
-      anotherJob
-    }
+    'myJob': createJob().handler(...),
+    'emails.sendWelcome': createJob().handler(...),
   })
   .build();
 
@@ -43,12 +41,11 @@ await bossman.client.myJob.send({ name: "test" });
 ```
 
 ### 3. Client (createClient)
-Lightweight send-only client that can't process jobs:
+Lightweight send-only client that can't process jobs. Uses a minimal proxy for typed access with `typeof bossman`.
 ```typescript
 import type { bossman } from './bossman';
-
 const client = createClient<typeof bossman>({ connectionString });
-await client.myJob.send({ name: "test" });
+await client['myJob'].send({ name: 'test' });
 ```
 
 ## Architecture
@@ -58,9 +55,7 @@ await client.myJob.send({ name: "test" });
 src/
 ├── index.ts                 # Main exports
 ├── create-bossman.ts        # Worker implementation (BossmanWorker class)
-├── create-client.ts         # Client-only implementation  
-├── client/
-│   └── build-proxy.ts       # Proxy-based client structure builder
+├── create-client.ts         # Client-only implementation (flat jobs map)
 ├── jobs/
 │   ├── builder.ts           # Job builder (createJob)
 │   └── client.ts            # JobClient class (send/schedule/unschedule)
@@ -68,12 +63,12 @@ src/
 │   └── create-pg-boss.ts    # Shared pg-boss instance creation
 └── types/
     ├── index.ts             # Core type definitions
-    └── router.ts            # Router and job flattening logic
+    └── (router.ts removed)  # Flat jobs map replaces nested routers
 ```
 
 ### Key Design Patterns
 
-1. **Proxy Pattern**: Used in `build-proxy.ts` to dynamically create JobClient instances as properties are accessed. This enables the dot-notation API (`client.emails.sendWelcome.send()`).
+1. [Client] Minimal proxy retained: createClient uses a tiny Proxy for typed access while worker uses a concrete map.
 
 2. **Builder Pattern**: Jobs are created using a fluent builder API that allows chaining options before defining the handler.
 
@@ -85,22 +80,11 @@ src/
 
 ### Type System
 
-1. **Parameterless Jobs**: Jobs without parameters use `unknown` type (not `undefined`) for simplicity. They require `null` to be passed when sending.
+1. **Parameterless Jobs**: Jobs without parameters infer input as `unknown`. `send()` and `schedule()` accept optional data; if omitted, `{}` is sent.
 
-2. **ClientStructure Type**: Complex conditional type that maps a JobRouter to a structure of JobClient instances:
-```typescript
-export type ClientStructure<T extends JobRouter> = {
-  [K in keyof T]: T[K] extends JobRouter
-    ? ClientStructure<T[K]>  // Recursive for nested routers
-    : T[K] extends { handler: infer H }
-      ? JobClient<ExtractInput<H>, unknown>
-      : T[K] extends { batchHandler: infer H }
-        ? JobClient<ExtractInput<H>, unknown>
-        : never;
-}
-```
+2. **Flat Jobs Map**: A single-level object `JobsMap = Record<string, JobWithoutName>` keyed by queue names (e.g., `"emails.sendWelcome"`). Worker builds a concrete client map. Client uses a minimal proxy.
 
-3. **Router Flattening**: Nested job structures are flattened to dot-notation names (e.g., `emails.sendWelcome`) for pg-boss compatibility.
+3. **ClientStructure**: Simple mapped type from `JobsMap` keys to `JobClient` with inferred input.
 
 ### Error Handling
 
@@ -116,10 +100,9 @@ export type ClientStructure<T extends JobRouter> = {
 
 ### Client Features
 
-- **send()**: Can accept single item or array of items
-- **schedule()**: Schedule jobs with cron expressions
-- **unschedule()**: Remove scheduled jobs
-- Schedule names are prefixed with job name: `${jobName}__${scheduleName}`
+- **send()**: Accepts single item or array; data optional for parameterless jobs
+- **schedule()**: Schedule jobs with cron expressions; schedules are tied to the job/queue name (pg-boss v10+)
+- **unschedule()**: Remove scheduled jobs for the queue
 
 ## Testing
 
@@ -137,11 +120,10 @@ Tests use:
 
 ## Recent Changes & Decisions
 
-1. **Removed PgBossmanClient**: Was confusing, functionality merged into create-bossman.ts
-2. **Simplified API**: `init()` is now private, auto-called when needed
-3. **Direct client access**: `client.jobName.send()` instead of `client.client.jobName.send()`
-4. **tRPC-like types**: Use `typeof bossman` directly, no helper types needed
-5. **Unified pg-boss creation**: Shared helper in `core/create-pg-boss.ts` with default options
+1. **Flat jobs map**: Replaced nested routers with a single-level jobs object keyed by queue names.
+2. **Removed proxy**: Client is a concrete map; lazy init handled inside JobClient.
+3. **Simplified types**: `JobsMap`, `JobWithoutName`, `InferInputFromJob` introduced; router flattening removed.
+4. **Scheduling semantics**: Schedule/unschedule target queue name directly (pg-boss v10).
 
 ## Common Patterns
 
@@ -152,8 +134,10 @@ const myJob = createJob().handler(() => {
   return { success: true };
 });
 
-// Sending requires null
-await client.myJob.send(null);
+// Sending without data
+await client.myJob.send();
+// or
+await client.myJob.send({});
 ```
 
 ### Batch Processing
@@ -179,9 +163,9 @@ const jobs = {
 
 ## Known Issues & Limitations
 
-1. **Type inference for parameterless jobs**: Shows as `unknown` instead of more specific type
-2. **Schedule parameter**: Currently accepts any string (not validated as valid cron)
-3. **Async type assertion needed**: In createClient due to TypeScript conditional type limitations
+1. **Type inference for parameterless jobs**: Shows as `unknown` (acceptable tradeoff for simplicity)
+2. **Cron string validation**: Currently accepts any string (not validated as valid cron)
+3. **Client-only scheduling**: `createClient` cannot create queues; scheduling requires queues to already exist (e.g., a worker has initialized/created them)
 
 ## Future Considerations
 
@@ -198,5 +182,4 @@ const jobs = {
 - **biome**: Linting and formatting
 
 ---
-
-*Last updated: During session fixing client type inference to work like tRPC with simple `typeof` usage*
+*Last updated: Parameterless API simplification and schedule queue-name fix*

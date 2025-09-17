@@ -1,62 +1,62 @@
 import type PgBoss from "pg-boss";
 
-// Job handler types - can be sync or async
-export type JobHandler<TInput, TOutput = void> = (
+// Queue handler types - can be sync or async
+export type QueueHandler<TInput, TOutput = void> = (
   input: TInput
 ) => TOutput | Promise<TOutput>;
-export type BatchJobHandler<TInput, TOutput = void> = (
+export type BatchQueueHandler<TInput, TOutput = void> = (
   inputs: TInput[]
 ) => TOutput[] | Promise<TOutput[]>;
 
-// Job options that pass through to pg-boss
-export interface JobOptions extends Partial<PgBoss.SendOptions> {
+// Queue options that pass through to pg-boss
+export interface QueueOptions extends Partial<PgBoss.SendOptions> {
   // Additional options can be added here
   batchSize?: number; // For batch handlers
 }
 
-// Job definition after builder completes
-export type SingleJobDefinition<TInput = unknown, TOutput = void> = {
+// Queue definition after builder completes
+export type SingleQueueDefinition<TInput = unknown, TOutput = void> = {
   name: string;
-  handler: JobHandler<TInput, TOutput>;
-  options?: JobOptions;
-  schedule?: JobSchedule<TInput>;
+  handler: QueueHandler<TInput, TOutput>;
+  options?: QueueOptions;
+  schedule?: QueueSchedule<TInput>;
 };
 
-export type BatchJobDefinition<TInput = unknown, TOutput = void> = {
+export type BatchQueueDefinition<TInput = unknown, TOutput = void> = {
   name: string;
-  batchHandler: BatchJobHandler<TInput, TOutput>;
-  options?: JobOptions;
-  schedule?: JobSchedule<TInput>;
+  batchHandler: BatchQueueHandler<TInput, TOutput>;
+  options?: QueueOptions;
+  schedule?: QueueSchedule<TInput>;
 };
 
-export type JobDefinition<TInput = unknown, TOutput = void> =
-  | SingleJobDefinition<TInput, TOutput>
-  | BatchJobDefinition<TInput, TOutput>;
+export type QueueDefinition<TInput = unknown, TOutput = void> =
+  | SingleQueueDefinition<TInput, TOutput>
+  | BatchQueueDefinition<TInput, TOutput>;
 
-// Optional attached schedule config on a job
-export type JobSchedule<TInput = unknown> = {
+// Optional attached schedule config on a queue
+export type QueueSchedule<TInput = unknown> = {
   cron: string;
   data?: TInput;
   options?: PgBoss.ScheduleOptions;
 };
 
-// Helper to check if job is batch
-export function isBatchJob<TInput, TOutput>(
-  job: JobDefinition<TInput, TOutput>
-): job is BatchJobDefinition<TInput, TOutput> {
-  return "batchHandler" in job;
+// Helper to check if queue is batch
+export function isBatchQueue<TInput, TOutput>(
+  queue: QueueDefinition<TInput, TOutput>
+): queue is BatchQueueDefinition<TInput, TOutput> {
+  return "batchHandler" in queue;
 }
 
-// Registry of all jobs for type inference
-export type JobRegistry = Record<string, JobDefinition>;
+// Registry of all queues for type inference
+export type QueueRegistry = Record<string, QueueDefinition>;
 
-// Extract input type from job definition
-export type ExtractInput<T> = T extends JobDefinition<infer TInput, unknown>
+// Extract input type from queue definition
+export type ExtractInput<T> = T extends QueueDefinition<infer TInput, unknown>
   ? TInput
   : never;
 
-// Extract output type from job definition
-export type ExtractOutput<T> = T extends JobDefinition<unknown, infer TOutput>
+// Extract output type from queue definition
+export type ExtractOutput<T> = T extends QueueDefinition<unknown, infer TOutput>
   ? TOutput
   : never;
 
@@ -70,12 +70,12 @@ export function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
   );
 }
 
-// Flat jobs map
-export type JobWithoutName = Omit<JobDefinition, "name">;
-export type JobsMap = Record<string, JobWithoutName>;
+// Flat queues map
+export type QueueWithoutName = Omit<QueueDefinition, "name">;
+export type QueuesMap = Record<string, QueueWithoutName>;
 
-// Helper to infer input from JobWithoutName
-export type InferInputFromJob<J> = J extends {
+// Helper to infer input from QueueWithoutName
+export type InferInputFromQueue<J> = J extends {
   handler: (input: infer I) => unknown;
 }
   ? I

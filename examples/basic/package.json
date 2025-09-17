@@ -7,14 +7,23 @@
     "worker": "tsx src/worker/index.ts worker",
     "client": "tsx src/worker/index.ts client",
     "schedule": "tsx src/worker/index.ts schedule",
-    "dev": "tsx watch src/worker/index.ts worker"
+    "dev": "tsx watch src/worker/index.ts worker",
+    "server": "tsx src/server/index.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "dotenv": "^17.2.2",
+    "hono": "^4.4.3",
     "pg-bossman": "file:../.."
   },
   "devDependencies": {
     "@types/node": "^24.3.3",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "pg-bossman": "link:../.."
+    }
   }
 }

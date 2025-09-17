@@ -1,6 +1,6 @@
-import { createJob } from "../../../../src";
+import { createQueue } from "pg-bossman";
 
-export const sendPasswordResetJob = createJob()
+export const sendPasswordResetJob = createQueue()
   .options({ retryDelay: 60, retryLimit: 2 })
   .handler(async (input: { to: string; token: string }) => {
     console.log(`🔑 Sending password reset to ${input.to}`);

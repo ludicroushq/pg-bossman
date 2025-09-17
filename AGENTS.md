@@ -61,6 +61,8 @@ src/
 │   └── client.ts            # JobClient class (send/schedule/unschedule)
 ├── core/
 │   └── create-pg-boss.ts    # Shared pg-boss instance creation
+├── dashboard/
+│   └── index.ts            # Pure Hono SSR dashboard (queues list)
 └── types/
     ├── index.ts             # Core type definitions
     └── (router.ts removed)  # Flat jobs map replaces nested routers
@@ -124,6 +126,19 @@ Tests use:
 2. **Removed proxy**: Client is a concrete map; lazy init handled inside JobClient.
 3. **Simplified types**: `JobsMap`, `JobWithoutName`, `InferInputFromJob` introduced; router flattening removed.
 4. **Scheduling semantics**: Schedule/unschedule target queue name directly (pg-boss v10).
+5. **Dashboard rewrite**: Removed React/Vite SPA. New dashboard is a pure Hono SSR handler mounted under a configurable basePath. No RPC/ORPC.
+6. **Client API**: `createClient` now exposes `getPgBoss(): Promise<PgBoss>` for read-only dashboard endpoints.
+
+## Dashboard
+
+- Pure Hono SSR app. Styling via Tailwind CDN + daisyUI plugin; no build step.
+- `createDashboard(client, { basePath? })` → `(req: Request) => Promise<Response>`.
+- Base path is normalized (no trailing slash) and injected into context for links/htmx.
+- Routes:
+  - `GET {basePath}/` → Full HTML page (navbar + Queues section)
+  - `GET {basePath}/api/queues/queues-list-card` → HTML partial (Queues card) for htmx auto-refresh
+- htmx drives auto-refresh every 1s by fetching the partial; no JSON/RPC endpoints.
+- No auth, no bundler, no React/JSX.
 
 ## Common Patterns
 

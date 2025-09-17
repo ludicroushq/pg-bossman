@@ -1,6 +1,6 @@
-import { createJob } from "../../../../src";
+import { createQueue } from "pg-bossman";
 
-export const cleanupOldFilesJob = createJob()
+export const cleanupOldFilesJob = createQueue()
   .options({ retryLimit: 1 })
   .handler(async (input: { daysOld: number; path: string }) => {
     console.log(

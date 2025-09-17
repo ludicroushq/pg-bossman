@@ -1,16 +1,16 @@
 import type PgBoss from "pg-boss";
 
 /**
- * Job client that provides type-safe methods for a specific job
+ * Queue client that provides type-safe methods for a specific queue
  * This is the shared implementation used by both bossman and createClient
  */
-export class JobClient<TInput = unknown, _TOutput = void> {
+export class QueueClient<TInput = unknown, _TOutput = void> {
   private readonly getPgBoss: () => Promise<PgBoss>;
-  private readonly jobName: string;
+  private readonly queueName: string;
 
-  constructor(getPgBoss: () => Promise<PgBoss>, jobName: string) {
+  constructor(getPgBoss: () => Promise<PgBoss>, queueName: string) {
     this.getPgBoss = getPgBoss;
-    this.jobName = jobName;
+    this.queueName = queueName;
   }
 
   /**
@@ -31,8 +31,8 @@ export class JobClient<TInput = unknown, _TOutput = void> {
         payload.map((item) =>
           // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
           options
-            ? pgBoss.send(this.jobName, item as object, options)
-            : pgBoss.send(this.jobName, item as object)
+            ? pgBoss.send(this.queueName, item as object, options)
+            : pgBoss.send(this.queueName, item as object)
         )
       );
       return jobIds.filter((id) => id !== null) as string[];
@@ -41,8 +41,8 @@ export class JobClient<TInput = unknown, _TOutput = void> {
     // Single item
     // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
     return options
-      ? await pgBoss.send(this.jobName, payload as object, options)
-      : await pgBoss.send(this.jobName, payload as object);
+      ? await pgBoss.send(this.queueName, payload as object, options)
+      : await pgBoss.send(this.queueName, payload as object);
   }
 
   /**
@@ -61,7 +61,7 @@ export class JobClient<TInput = unknown, _TOutput = void> {
     // In pg-boss v10+, schedules are tied to queue names.
     // Use the queue/job name directly to ensure the queue exists.
     return await pgBoss.schedule(
-      this.jobName,
+      this.queueName,
       cron,
       payload as object,
       options
@@ -74,6 +74,6 @@ export class JobClient<TInput = unknown, _TOutput = void> {
   async unschedule(_name?: string): Promise<void> {
     const pgBoss = await this.getPgBoss();
     // In pg-boss v10+, unschedule by queue/job name
-    return await pgBoss.unschedule(this.jobName);
+    return await pgBoss.unschedule(this.queueName);
   }
 }

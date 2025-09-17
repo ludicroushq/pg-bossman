@@ -22,9 +22,9 @@ pnpm client
 
 ## Features Demonstrated
 
-- Job registration with type safety
-- Simple job handlers
-- Batch job processing (processes multiple jobs at once)
+- Queue registration with type safety
+- Simple queue handlers
+- Batch queue processing (processes multiple jobs at once)
 - Retry configuration
 - Worker lifecycle management
 - Client job sending

@@ -1,11 +1,11 @@
-import { createJob } from "../../../../src";
+import { createQueue } from "pg-bossman";
 
 const FILE_EXTENSION_REGEX = /\.\w+$/;
 const IMAGE_PROCESSING_DELAY_MS = 200;
 const BATCH_SIZE = 10;
 const RETRY_LIMIT = 3;
 
-export const resizeImageJob = createJob()
+export const resizeImageJob = createQueue()
   .options({ batchSize: BATCH_SIZE, retryLimit: RETRY_LIMIT })
   .batchHandler(
     async (inputs: Array<{ url: string; width: number; height: number }>) => {

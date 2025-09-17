@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-
+import "dotenv/config";
 import {
   processPayment,
   requestPasswordReset,
@@ -7,7 +7,6 @@ import {
   scheduleCleanup,
   sendWelcomeEmail,
 } from "./client";
-import { setupSchedules } from "./schedule";
 import { startWorker } from "./start";
 
 // Parse command line arguments
@@ -19,7 +18,6 @@ async function main() {
     case "worker":
       // Start the worker to process jobs
       await startWorker();
-      await setupSchedules();
       break;
 
     case "client": {
@@ -91,10 +89,10 @@ Environment:
 Examples:
   # Terminal 1 - Start the worker
   npm run worker
-  
+
   # Terminal 2 - Send jobs
   npm run client
-  
+
   # With custom database
   DATABASE_URL=postgres://user:pass@host/db npm run worker
 `);

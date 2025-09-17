@@ -1,6 +1,6 @@
-import { createJob } from "../../../../src";
+import { createQueue } from "pg-bossman";
 
-export const sendWelcomeEmailJob = createJob()
+export const sendWelcomeEmailJob = createQueue()
   .options({ retryLimit: 3 })
   .handler(async (input: { to: string; name: string }) => {
     console.log(`📧 Sending welcome email to ${input.to}`);

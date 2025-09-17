@@ -14,9 +14,9 @@ import { sendWelcomeEmailJob } from "./send-welcome-email-job";
 
 // Flat jobs map keyed by queue names
 export const jobs = {
-  "emails.sendPasswordReset": sendPasswordResetJob,
-  "emails.sendWelcome": sendWelcomeEmailJob,
-  "maintenance.cleanupOldFiles": cleanupOldFilesJob,
-  "media.resizeImage": resizeImageJob,
-  "payments.processPayment": processPaymentJob,
+  cleanupOldFilesJob,
+  processPaymentJob,
+  resizeImageJob,
+  sendPasswordResetJob,
+  sendWelcomeEmailJob,
 };

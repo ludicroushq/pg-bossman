@@ -1,4 +1,4 @@
-import { createClient } from "../../../src";
+import { createClient } from "pg-bossman";
 import type { bossman } from "./start";
 
 const DATABASE_URL =
@@ -11,7 +11,7 @@ export const client = createClient<typeof bossman>({
 
 // Example usage functions
 export async function sendWelcomeEmail(to: string, name: string) {
-  const jobId = await client["emails.sendWelcome"].send({ name, to });
+  const jobId = await client.queues["emails.sendWelcome"].send({ name, to });
   console.log(`📤 Queued welcome email job: ${jobId}`);
   return jobId;
 }
@@ -22,7 +22,7 @@ const TOKEN_LENGTH = 9;
 
 export async function requestPasswordReset(email: string) {
   const token = `reset_${Date.now()}_${Math.random().toString(TOKEN_RADIX).substr(TOKEN_START, TOKEN_LENGTH)}`;
-  const jobId = await client["emails.sendPasswordReset"].send({
+  const jobId = await client.queues["emails.sendPasswordReset"].send({
     to: email,
     token,
   });
@@ -35,14 +35,14 @@ export async function resizeImages(
 ) {
   // These will be batched automatically based on the job's batchSize setting
   const jobIds = await Promise.all(
-    images.map((img) => client["media.resizeImage"].send(img))
+    images.map((img) => client.queues["media.resizeImage"].send(img))
   );
   console.log(`📤 Queued ${jobIds.length} image resize jobs (will be batched)`);
   return jobIds;
 }
 
 export async function scheduleCleanup(path: string, daysOld: number) {
-  const jobId = await client["maintenance.cleanupOldFiles"].send({
+  const jobId = await client.queues["maintenance.cleanupOldFiles"].send({
     daysOld,
     path,
   });
@@ -56,7 +56,7 @@ export async function processPayment(
   currency: string,
   customerId: string
 ) {
-  const jobId = await client["payments.processPayment"].send({
+  const jobId = await client.queues["payments.processPayment"].send({
     amount,
     currency,
     customerId,

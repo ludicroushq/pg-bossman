@@ -1,6 +1,6 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createBossman, createJob, defineEvents } from "../index";
+import { createBossman, createQueue, defineEvents } from "../index";
 import { createJobCounter, createTestDb } from "../tests/setup";
 
 // Test constants
@@ -12,7 +12,7 @@ const BATCH_SIZE = 3;
 const HIGH_PRIORITY = 10;
 const THIRD_JOB_ID = 3;
 
-describe("Basic Job Flow", () => {
+describe("Basic Queue Flow", () => {
   let pglite: PGlite;
   let db: {
     executeSql: (
@@ -49,13 +49,13 @@ describe("Basic Job Flow", () => {
     await pglite.close();
   });
 
-  it("should register a job, send it, and process it", async () => {
+  it("should register a queue, send a job, and process it", async () => {
     // Create a job counter to track invocations
     const counter = createJobCounter();
 
-    // Define jobs using the new router pattern
+    // Define queues using the flat map
     const jobs = {
-      testJob: createJob().handler((input: { message: string }) => {
+      testJob: createQueue().handler((input: { message: string }) => {
         counter.handler(input);
         return Promise.resolve({ processed: true });
       }),
@@ -67,7 +67,7 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send a job via client namespace
-    const jobId = await bossman.client().jobs.testJob.send({
+    const jobId = await bossman.client().queues.testJob.send({
       message: "Hello, world!",
     });
     expect(jobId).toBeTruthy();
@@ -115,12 +115,12 @@ describe("Basic Job Flow", () => {
     }
   });
 
-  it("should handle batch jobs correctly", async () => {
+  it("should handle batch queues correctly", async () => {
     const processedBatches: Array<Array<{ id: number }>> = [];
 
-    // Define jobs using the new router pattern
+    // Define queues using the flat map
     const jobs = {
-      batchJob: createJob()
+      batchJob: createQueue()
         .options({ batchSize: BATCH_SIZE })
         .batchHandler((inputs: Array<{ id: number }>) => {
           processedBatches.push(inputs);
@@ -134,14 +134,14 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send first job to initialize pg-boss
-    const firstJobId = await bossman.client().jobs.batchJob.send({ id: 1 });
+    const firstJobId = await bossman.client().queues.batchJob.send({ id: 1 });
 
     // Send multiple jobs via client namespace
     const remainingJobIds = await Promise.all([
-      bossman.client().jobs.batchJob.send({ id: 2 }),
-      bossman.client().jobs.batchJob.send({ id: 3 }),
-      bossman.client().jobs.batchJob.send({ id: 4 }),
-      bossman.client().jobs.batchJob.send({ id: 5 }),
+      bossman.client().queues.batchJob.send({ id: 2 }),
+      bossman.client().queues.batchJob.send({ id: 3 }),
+      bossman.client().queues.batchJob.send({ id: 4 }),
+      bossman.client().queues.batchJob.send({ id: 5 }),
     ]);
 
     const jobIds = [firstJobId, ...remainingJobIds];
@@ -189,7 +189,7 @@ describe("Basic Job Flow", () => {
     const counter = createJobCounter();
 
     const jobs = {
-      sendEmail: createJob().handler(
+      sendEmail: createQueue().handler(
         (input: { to: string; subject: string }) => {
           counter.handler(input);
           return Promise.resolve();
@@ -204,7 +204,7 @@ describe("Basic Job Flow", () => {
     // Test that the send method exists and works via client namespace
     const jobId = await bossman
       .client()
-      .jobs.sendEmail.send(
+      .queues.sendEmail.send(
         { subject: "Test", to: "test@example.com" },
         { priority: HIGH_PRIORITY }
       );
@@ -212,7 +212,7 @@ describe("Basic Job Flow", () => {
     expect(jobId).toBeTruthy();
 
     // Verify job was created with correct data
-    const pgBossInstance = bossman.getPgBoss();
+    const pgBossInstance = await bossman.getPgBoss();
     const job = await pgBossInstance.getJobById("sendEmail", jobId as string);
     expect(job).toBeTruthy();
     expect(job?.data).toEqual({ subject: "Test", to: "test@example.com" });
@@ -226,7 +226,7 @@ describe("Basic Job Flow", () => {
 
     // Define a job with a sync handler (no async/await)
     const jobs = {
-      syncJob: createJob().handler((input: { value: number }) => {
+      syncJob: createQueue().handler((input: { value: number }) => {
         counter.handler(input);
         // Return directly without Promise
         return { doubled: input.value * 2 };
@@ -240,7 +240,7 @@ describe("Basic Job Flow", () => {
     // Initialize pg-boss for sending
 
     // Send a job
-    const jobId = await bossman.client().jobs.syncJob.send({ value: 5 });
+    const jobId = await bossman.client().queues.syncJob.send({ value: 5 });
     expect(jobId).toBeTruthy();
 
     // Start worker
@@ -274,7 +274,7 @@ describe("Basic Job Flow", () => {
 
     // Define a batch job with a sync handler (no async/await)
     const jobs = {
-      syncBatchJob: createJob()
+      syncBatchJob: createQueue()
         .options({ batchSize: 2 })
         .batchHandler((inputs: Array<{ id: number }>) => {
           processedBatches.push(inputs);
@@ -288,12 +288,12 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send first job to initialize pg-boss
-    await bossman.client().jobs.syncBatchJob.send({ id: 1 });
+    await bossman.client().queues.syncBatchJob.send({ id: 1 });
 
     // Send remaining jobs
     await Promise.all([
-      bossman.client().jobs.syncBatchJob.send({ id: 2 }),
-      bossman.client().jobs.syncBatchJob.send({ id: 3 }),
+      bossman.client().queues.syncBatchJob.send({ id: 2 }),
+      bossman.client().queues.syncBatchJob.send({ id: 3 }),
     ]);
 
     // Start worker
@@ -327,21 +327,21 @@ describe("Basic Job Flow", () => {
   it("should support nested routers", async () => {
     const emailsSent: Array<{ to: string; type: string }> = [];
 
-    // Define flat jobs structure
+    // Define flat queues structure
     const jobs = {
       // Top-level job with dash in name
-      "data-export": createJob().handler(() => {
+      "data-export": createQueue().handler(() => {
         return { exported: true };
       }),
-      "emails.sendPasswordReset": createJob().handler(
+      "emails.sendPasswordReset": createQueue().handler(
         (input: { to: string }) => {
           emailsSent.push({ to: input.to, type: "password-reset" });
         }
       ),
-      "emails.sendWelcome": createJob().handler((input: { to: string }) => {
+      "emails.sendWelcome": createQueue().handler((input: { to: string }) => {
         emailsSent.push({ to: input.to, type: "welcome" });
       }),
-      "images.resize": createJob()
+      "images.resize": createQueue()
         .options({ batchSize: 2 })
         .batchHandler((inputs: Array<{ url: string }>) => {
           return inputs.map((i) => ({ resized: i.url }));
@@ -353,13 +353,13 @@ describe("Basic Job Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send nested jobs
-    await bossman.client().jobs["emails.sendWelcome"].send({
+    await bossman.client().queues["emails.sendWelcome"].send({
       to: "user1@example.com",
     });
-    await bossman.client().jobs["emails.sendPasswordReset"].send({
+    await bossman.client().queues["emails.sendPasswordReset"].send({
       to: "user2@example.com",
     });
-    await bossman.client().jobs["data-export"].send({});
+    await bossman.client().queues["data-export"].send({});
 
     // Start worker
     const originalOn = process.on;
@@ -392,11 +392,11 @@ describe("Basic Job Flow", () => {
     );
   });
 
-  it("should publish events to subscribed jobs with mapping", async () => {
+  it("should publish events to subscribed queues with mapping", async () => {
     const emailsSent: Array<{ to: string }> = [];
 
     const jobs = {
-      sendWelcomeEmail: createJob().handler((input: { to: string }) => {
+      sendWelcomeEmail: createQueue().handler((input: { to: string }) => {
         emailsSent.push({ to: input.to });
       }),
     };

@@ -2,25 +2,27 @@
 
 export { createBossman, type PgBossmanInstance } from "./create-bossman";
 export { type ClientStructure, createClient } from "./create-client";
+// Dashboard
+export { createDashboard } from "./dashboard";
 // Events
 export { defineEvents, type EventsDef } from "./events/index";
-export { createJob, JobBuilder } from "./jobs/builder";
-// Job client exports (for advanced usage)
-export { JobClient } from "./jobs/client";
+export { createQueue, QueueBuilder } from "./queues/builder";
+// Queue client exports (for advanced usage)
+export { QueueClient } from "./queues/client";
 // Type exports
 export type {
-  BatchJobDefinition,
-  BatchJobHandler,
+  BatchQueueDefinition,
+  BatchQueueHandler,
   ExtractInput,
   ExtractOutput,
-  JobDefinition,
-  JobHandler,
-  JobOptions,
-  JobRegistry,
-  JobsMap,
-  JobWithoutName,
-  SingleJobDefinition,
+  QueueDefinition,
+  QueueHandler,
+  QueueOptions,
+  QueueRegistry,
+  QueuesMap,
+  QueueWithoutName,
+  SingleQueueDefinition,
 } from "./types/index";
 // Helper functions
-export { isBatchJob, isPromise } from "./types/index";
+export { isBatchQueue, isPromise } from "./types/index";
 // Router types removed in flat API

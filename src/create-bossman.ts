@@ -2,21 +2,21 @@ import type PgBoss from "pg-boss";
 import { createPgBoss } from "./core/create-pg-boss";
 import type { EventKeys, EventPayloads, EventsDef } from "./events/index";
 import { eventQueueName } from "./events/index";
-import { JobClient } from "./jobs/client";
+import { QueueClient } from "./queues/client";
 import type {
-  InferInputFromJob,
-  JobDefinition,
-  JobsMap,
-  JobWithoutName,
+  InferInputFromQueue,
+  QueueDefinition,
+  QueuesMap,
+  QueueWithoutName,
 } from "./types/index";
-import { isBatchJob, isPromise } from "./types/index";
+import { isBatchQueue, isPromise } from "./types/index";
 
 /**
- * Worker instance with job processing capabilities
+ * Worker instance with queue processing capabilities
  * This class is internal to create-bossman and contains all worker logic
  */
-type ClientStructure<T extends JobsMap> = {
-  [K in keyof T]: JobClient<InferInputFromJob<T[K]>, unknown>;
+type ClientStructure<T extends QueuesMap> = {
+  [K in keyof T]: QueueClient<InferInputFromQueue<T[K]>, unknown>;
 };
 
 type RuntimeSubscription = {
@@ -25,13 +25,13 @@ type RuntimeSubscription = {
 };
 
 class BossmanWorker<
-  T extends JobsMap,
+  T extends QueuesMap,
   TEvents extends EventsDef<Record<string, unknown>> = EventsDef<
     Record<string, unknown>
   >,
 > {
   private readonly pgBoss: PgBoss;
-  private readonly jobs: Map<string, JobDefinition>;
+  private readonly jobs: Map<string, QueueDefinition>;
   private isWorkerStarted = false;
   private isPgBossStarted = false;
   private readonly subs: Map<string, RuntimeSubscription[]> = new Map();
@@ -42,7 +42,7 @@ class BossmanWorker<
 
   constructor(
     pgBoss: PgBoss,
-    jobs: Map<string, JobDefinition>,
+    jobs: Map<string, QueueDefinition>,
     router: T,
     subscriptions?: Map<string, RuntimeSubscription[]>
   ) {
@@ -61,13 +61,13 @@ class BossmanWorker<
     // Build concrete client structure
     const client = {} as Record<string, unknown>;
     for (const name of Object.keys(router)) {
-      client[name] = new JobClient(ensureStarted, name);
+      client[name] = new QueueClient(ensureStarted, name);
     }
     this.clientMap = client as ClientStructure<T>;
   }
 
   client(): {
-    jobs: ClientStructure<T>;
+    queues: ClientStructure<T>;
     events: {
       [E in EventKeys<TEvents>]: {
         emit: (
@@ -77,7 +77,7 @@ class BossmanWorker<
       };
     };
   } {
-    const jobs = this.clientMap as ClientStructure<T>;
+    const queues = this.clientMap as ClientStructure<T>;
     const events = new Proxy(
       {},
       {
@@ -90,7 +90,7 @@ class BossmanWorker<
             await this.init();
             return this.pgBoss;
           };
-          const emitter = new JobClient(getPg, q);
+          const emitter = new QueueClient(getPg, q);
           return {
             emit: (payload: unknown, options?: PgBoss.SendOptions) =>
               emitter.send((payload as object) ?? {}, options),
@@ -106,11 +106,11 @@ class BossmanWorker<
       };
     };
 
-    return { events, jobs };
+    return { events, queues };
   }
 
   /**
-   * Initialize pg-boss for sending jobs (without starting workers)
+   * Initialize pg-boss for sending (without starting workers)
    * This is called automatically by start() if not already done
    */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: composed startup steps
@@ -121,16 +121,40 @@ class BossmanWorker<
 
     await this.pgBoss.start();
 
-    // Create queues for all registered jobs (required in pg-boss v10+)
-    for (const [name] of this.jobs) {
+    // Create queues for all registered definitions (required in pg-boss v10+)
+    for (const [name, job] of this.jobs) {
       try {
-        await this.pgBoss.createQueue(name);
+        // Pass options directly to pg-boss - they match the PgBoss.Queue type
+        const queueOptions = {
+          name,
+          ...job.options,
+        };
+        await this.pgBoss.createQueue(name, queueOptions);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         if (!errorMessage.includes("already exists")) {
           throw error;
         }
+        // Queue exists, update it with current options
+        // Always update to ensure removed options are cleared (undefined for pg-boss)
+        // Using satisfies to ensure we handle all queue option keys
+        type QueueUpdateOptions = Omit<PgBoss.Queue, "name">;
+        const updateOptions = {
+          deadLetter: job.options?.deadLetter,
+          expireInHours: job.options?.expireInHours,
+          expireInMinutes: job.options?.expireInMinutes,
+          expireInSeconds: job.options?.expireInSeconds,
+          policy: job.options?.policy,
+          retentionDays: job.options?.retentionDays,
+          retentionHours: job.options?.retentionHours,
+          retentionMinutes: job.options?.retentionMinutes,
+          retentionSeconds: job.options?.retentionSeconds,
+          retryBackoff: job.options?.retryBackoff,
+          retryDelay: job.options?.retryDelay,
+          retryLimit: job.options?.retryLimit,
+        } satisfies Partial<QueueUpdateOptions>;
+        await this.pgBoss.updateQueue(name, updateOptions);
       }
     }
 
@@ -170,10 +194,10 @@ class BossmanWorker<
     await this.reconcileSchedules();
     await this.registerEventHandlers();
 
-    // Register all job handlers
-    const jobList = await this.registerJobHandlers();
+    // Register all queue handlers
+    const jobList = await this.registerQueueHandlers();
 
-    console.log("\n📋 Registered jobs:");
+    console.log("\n📋 Registered queues:");
     for (const job of jobList) {
       console.log(job);
     }
@@ -192,7 +216,7 @@ class BossmanWorker<
     const existingNames = new Set(existing.map((s) => s.name));
 
     for (const [name, job] of this.jobs) {
-      const schedule = (job as JobDefinition).schedule;
+      const schedule = (job as QueueDefinition).schedule;
       if (schedule) {
         await this.pgBoss.schedule(
           name,
@@ -220,7 +244,7 @@ class BossmanWorker<
 
   /**
    * Get all schedules
-   * Returns all scheduled jobs across all queues
+   * Returns all schedules across all queues
    */
   async getSchedules(): Promise<PgBoss.Schedule[]> {
     return await this.pgBoss.getSchedules();
@@ -228,23 +252,25 @@ class BossmanWorker<
 
   /**
    * Get the underlying pg-boss instance for advanced usage
+   * Ensures pg-boss is started before returning
    */
-  getPgBoss(): PgBoss {
+  async getPgBoss(): Promise<PgBoss> {
+    await this.init();
     return this.pgBoss;
   }
 
   /**
    * Register all job handlers and return formatted job list
    */
-  private async registerJobHandlers(): Promise<string[]> {
+  private async registerQueueHandlers(): Promise<string[]> {
     const jobList: string[] = [];
 
     for (const [name, job] of this.jobs) {
       // Build job info string
-      jobList.push(this.formatJobInfo(name, job));
+      jobList.push(this.formatQueueInfo(name, job));
 
       // Register the handler
-      await this.registerSingleJobHandler(name, job);
+      await this.registerSingleQueueHandler(name, job);
     }
 
     return jobList;
@@ -253,7 +279,7 @@ class BossmanWorker<
   /**
    * Format job information for logging
    */
-  private formatJobInfo(name: string, job: JobDefinition): string {
+  private formatQueueInfo(name: string, job: QueueDefinition): string {
     let jobInfo = `  • ${name}`;
 
     // Add job configuration details
@@ -278,11 +304,11 @@ class BossmanWorker<
   /**
    * Register a single job handler
    */
-  private async registerSingleJobHandler(
+  private async registerSingleQueueHandler(
     name: string,
-    job: JobDefinition
+    job: QueueDefinition
   ): Promise<void> {
-    if (isBatchJob(job)) {
+    if (isBatchQueue(job)) {
       // Batch job handler - always receives an array
       const workOptions: PgBoss.WorkOptions & { includeMetadata: true } = {
         batchSize: job.options?.batchSize,
@@ -294,7 +320,7 @@ class BossmanWorker<
         workOptions,
         async (jobs: PgBoss.JobWithMetadata[]) => {
           console.log(
-            `📦 Processing batch job "${name}" (${jobs.length} items)`
+            `📦 Processing batch for queue "${name}" (${jobs.length} jobs)`
           );
           const inputs = jobs.map((j) => j.data);
           // Batch handler always receives an array
@@ -303,7 +329,7 @@ class BossmanWorker<
         }
       );
     } else {
-      // Single job handler - process each job individually
+      // Single handler - process each job individually
       const workOptions: PgBoss.WorkOptions & { includeMetadata: true } = {
         batchSize: 1,
         includeMetadata: true as const,
@@ -313,7 +339,7 @@ class BossmanWorker<
         name,
         workOptions,
         async (jobs: PgBoss.JobWithMetadata[]) => {
-          console.log(`⚡ Processing job "${name}" (${jobs.length} items)`);
+          console.log(`⚡ Processing queue "${name}" (${jobs.length} jobs)`);
           // Single handler is called once per job
           const results: unknown[] = [];
           for (const pgBossJob of jobs) {
@@ -381,7 +407,7 @@ class BossmanWorker<
  * Builder for creating a pg-bossman instance
  */
 class BossmanBuilder<
-  T extends JobsMap = Record<string, JobWithoutName>,
+  T extends QueuesMap = Record<string, QueueWithoutName>,
   TEvents extends EventsDef<Record<string, unknown>> = EventsDef<
     Record<string, unknown>
   >,
@@ -390,7 +416,8 @@ class BossmanBuilder<
   // biome-ignore lint/style/useReadonlyClassProperties: This is reassigned in the register method
   private router?: T;
   // eventsDef reserved for future; not used at runtime
-  // private readonly eventsDef?: TEvents;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Reserved for future event type tracking
+  private eventsDef?: TEvents;
   private subscriptionMap: Map<string, RuntimeSubscription[]> = new Map();
 
   constructor(options: PgBoss.ConstructorOptions) {
@@ -398,9 +425,9 @@ class BossmanBuilder<
   }
 
   /**
-   * Register jobs with the bossman instance
+   * Register queues with the bossman instance
    */
-  register<R extends JobsMap>(router: R): BossmanBuilder<R, TEvents> {
+  register<R extends QueuesMap>(router: R): BossmanBuilder<R, TEvents> {
     // We need to cast here because TypeScript can't track the type change
     const builder = this as unknown as BossmanBuilder<R, TEvents>;
     builder.router = router;
@@ -418,7 +445,7 @@ class BossmanBuilder<
   subscriptions(
     map: {
       [E in keyof EventPayloads<TEvents>]?: Partial<{
-        [Q in keyof T]: EventPayloads<TEvents>[E] extends InferInputFromJob<
+        [Q in keyof T]: EventPayloads<TEvents>[E] extends InferInputFromQueue<
           T[Q]
         >
           ?
@@ -426,10 +453,10 @@ class BossmanBuilder<
               | {
                   map: (
                     p: EventPayloads<TEvents>[E]
-                  ) => InferInputFromJob<T[Q]>;
+                  ) => InferInputFromQueue<T[Q]>;
                 }
           : {
-              map: (p: EventPayloads<TEvents>[E]) => InferInputFromJob<T[Q]>;
+              map: (p: EventPayloads<TEvents>[E]) => InferInputFromQueue<T[Q]>;
             };
       }>;
     }
@@ -466,13 +493,16 @@ class BossmanBuilder<
    */
   build(): PgBossmanInstance<T, TEvents> {
     if (!this.router) {
-      throw new Error("No jobs registered. Call .register() before .build()");
+      throw new Error("No queues registered. Call .register() before .build()");
     }
 
-    // Build a map of job definitions with names
-    const jobMap = new Map<string, JobDefinition>();
+    // Build a map of queue definitions with names
+    const jobMap = new Map<string, QueueDefinition>();
     for (const [name, def] of Object.entries(this.router)) {
-      const withName = { ...(def as JobWithoutName), name } as JobDefinition;
+      const withName = {
+        ...(def as QueueWithoutName),
+        name,
+      } as QueueDefinition;
       jobMap.set(name, withName);
     }
 
@@ -492,9 +522,9 @@ class BossmanBuilder<
  * Usage:
  * const bossman = createBossman({ connectionString: 'postgres://...' })
  *   .register({
- *     sendEmail: createJob().handler(...),
+ *     sendEmail: createQueue().handler(...),
  *     images: {
- *       resize: createJob().batchHandler(...)
+ *       resize: createQueue().batchHandler(...)
  *     }
  *   })
  *   .build();
@@ -509,7 +539,7 @@ export function createBossman(
  * The full pg-bossman instance with worker methods and client structure
  */
 export type PgBossmanInstance<
-  T extends JobsMap,
+  T extends QueuesMap,
   TEvents extends EventsDef<Record<string, unknown>> = EventsDef<
     Record<string, unknown>
   >,
@@ -518,11 +548,11 @@ export type PgBossmanInstance<
   start: () => Promise<void>;
   stop: (options?: PgBoss.StopOptions) => Promise<void>;
   getSchedules: () => Promise<PgBoss.Schedule[]>;
-  getPgBoss: () => PgBoss;
+  getPgBoss: () => Promise<PgBoss>;
 
-  // Bossman client accessor (jobs + events emitters)
+  // Bossman client accessor (queues + events emitters)
   client: () => {
-    jobs: ClientStructure<T>;
+    queues: ClientStructure<T>;
     events: {
       [E in EventKeys<TEvents>]: {
         emit: (

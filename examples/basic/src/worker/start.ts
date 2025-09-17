@@ -1,4 +1,5 @@
-import { createBossman } from "../../../src";
+import "dotenv/config";
+import { createBossman } from "pg-bossman";
 import { jobs } from "./jobs";
 
 const DATABASE_URL =
@@ -21,7 +22,7 @@ export async function startWorker() {
   try {
     await bossman.start();
     console.log("✅ Worker started successfully!");
-    console.log("📋 Registered jobs:");
+    console.log("📋 Registered queues:");
     console.log("  • emails.sendWelcome");
     console.log("  • emails.sendPasswordReset");
     console.log("  • media.resizeImage (batch)");
@@ -53,6 +54,3 @@ export async function startWorker() {
     process.exit(1);
   }
 }
-
-// Export bossman for use in scheduling
-export { bossman };

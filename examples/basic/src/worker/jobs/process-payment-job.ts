@@ -1,11 +1,17 @@
-import { createJob } from "../../../../src";
+import { createQueue } from "pg-bossman";
 
-export const processPaymentJob = createJob()
+export const processPaymentJob = createQueue()
   .options({
     expireInSeconds: 300,
     retryBackoff: true,
     retryDelay: 60,
     retryLimit: 5,
+  })
+  .schedule("*/1 * * * *", {
+    amount: 100,
+    currency: "USD",
+    customerId: "123",
+    orderId: "123",
   })
   .handler(
     async (input: {
@@ -26,7 +32,7 @@ export const processPaymentJob = createJob()
       await new Promise((resolve) => setTimeout(resolve, PROCESSING_DELAY_MS));
 
       // Randomly simulate success/failure for demo
-      const FAILURE_RATE = 0.1;
+      const FAILURE_RATE = 0.9;
       const success = Math.random() > FAILURE_RATE;
 
       if (!success) {

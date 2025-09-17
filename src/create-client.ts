@@ -3,8 +3,8 @@ import { createLazyStarter, createPgBoss } from "./core/create-pg-boss";
 import type { PgBossmanInstance } from "./create-bossman";
 import type { EventKeys, EventPayloads } from "./events/index";
 import { eventQueueName } from "./events/index";
-import { JobClient } from "./jobs/client";
-import type { InferInputFromJob, JobsMap } from "./types/index";
+import { QueueClient } from "./queues/client";
+import type { InferInputFromQueue, QueuesMap } from "./types/index";
 
 /**
  * Create a lightweight client without handlers (send-only)
@@ -16,16 +16,16 @@ import type { InferInputFromJob, JobsMap } from "./types/index";
  *   connectionString: 'postgres://...'
  * });
  */
-export type ClientStructure<T extends JobsMap> = {
-  [K in keyof T]: JobClient<InferInputFromJob<T[K]>, unknown>;
+export type ClientStructure<T extends QueuesMap> = {
+  [K in keyof T]: QueueClient<InferInputFromQueue<T[K]>, unknown>;
 };
 
 // Minimal proxy just for createClient
-export function createClient<TBossman extends PgBossmanInstance<JobsMap>>(
+export function createClient<TBossman extends PgBossmanInstance<QueuesMap>>(
   options: PgBoss.ConstructorOptions
 ): TBossman extends PgBossmanInstance<infer R, infer E>
   ? {
-      jobs: ClientStructure<R>;
+      queues: ClientStructure<R>;
       events: {
         [K in EventKeys<E>]: {
           emit: (
@@ -34,17 +34,18 @@ export function createClient<TBossman extends PgBossmanInstance<JobsMap>>(
           ) => Promise<string | string[] | null>;
         };
       };
+      getPgBoss: () => Promise<PgBoss>;
     }
   : never {
   const pgBoss = createPgBoss(options, "client");
   const ensureStarted = createLazyStarter(pgBoss);
 
-  const jobsProxy = new Proxy(
+  const queuesProxy = new Proxy(
     {},
     {
       get: (_t, prop) =>
         typeof prop === "string"
-          ? new JobClient(ensureStarted, prop)
+          ? new QueueClient(ensureStarted, prop)
           : undefined,
     }
   );
@@ -57,7 +58,7 @@ export function createClient<TBossman extends PgBossmanInstance<JobsMap>>(
           return;
         }
         const q = eventQueueName(prop);
-        const emitter = new JobClient(ensureStarted, q);
+        const emitter = new QueueClient(ensureStarted, q);
         return {
           emit: (payload: unknown, opts?: PgBoss.SendOptions) =>
             emitter.send((payload as object) ?? {}, opts),
@@ -73,10 +74,11 @@ export function createClient<TBossman extends PgBossmanInstance<JobsMap>>(
 
   return {
     events: eventsProxy,
-    jobs: jobsProxy,
+    getPgBoss: () => ensureStarted(),
+    queues: queuesProxy,
   } as unknown as TBossman extends PgBossmanInstance<infer R, infer E>
     ? {
-        jobs: ClientStructure<R>;
+        queues: ClientStructure<R>;
         events: {
           [K in EventKeys<E>]: {
             emit: (
@@ -85,6 +87,7 @@ export function createClient<TBossman extends PgBossmanInstance<JobsMap>>(
             ) => Promise<string | string[] | null>;
           };
         };
+        getPgBoss: () => Promise<PgBoss>;
       }
     : never;
 }

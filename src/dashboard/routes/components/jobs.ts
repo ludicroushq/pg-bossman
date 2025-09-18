@@ -78,17 +78,23 @@ export function JobsList({
   const nextDisabled = nextOffset >= total;
   const routes = api(basePath);
   const listPath = (o: number) => routes.queueJobsList(name, limit, o);
+  const currentPage = Math.floor(offset / limit) + 1;
+  const prevPage = Math.max(1, currentPage - 1);
+  const nextPage = currentPage + 1;
+  const prevPageUrl = `${basePath}/queues/${encodeURIComponent(name)}/jobs?page=${prevPage}`;
+  const nextPageUrl = `${basePath}/queues/${encodeURIComponent(name)}/jobs?page=${nextPage}`;
+  const caption = `Showing ${start}–${end} of ${total}`;
   return html`
-    <div id="jobs-list">
-      <div hx-swap-oob="innerHTML:#jobs-count">Showing ${start}–${end} of ${total}</div>
-      ${JobsTable({ basePath, jobs })}
-      <div class="flex items-center justify-between text-sm mt-2">
-        <div>Showing ${start}–${end} of ${total}</div>
-        <div class="join">
-          <button class="btn btn-sm join-item" ${prevDisabled ? "disabled" : ""} hx-get="${listPath(prevOffset)}" hx-target="#jobs-list">Prev</button>
-          <button class="btn btn-sm join-item" ${nextDisabled ? "disabled" : ""} hx-get="${listPath(nextOffset)}" hx-target="#jobs-list">Next</button>
-        </div>
-      </div>
+    <div hx-swap-oob="innerHTML:#jobs-count-top">${caption}</div>
+    <div hx-swap-oob="innerHTML:#jobs-count-bottom">${caption}</div>
+    <div hx-swap-oob="innerHTML:#jobs-pagination-top" class="join">
+      <button class="btn btn-sm join-item" ${prevDisabled ? "disabled" : ""} hx-get="${listPath(prevOffset)}" hx-target="#jobs-list" hx-push-url="${prevPageUrl}">Prev</button>
+      <button class="btn btn-sm join-item" ${nextDisabled ? "disabled" : ""} hx-get="${listPath(nextOffset)}" hx-target="#jobs-list" hx-push-url="${nextPageUrl}">Next</button>
     </div>
+    <div hx-swap-oob="innerHTML:#jobs-pagination-bottom" class="join">
+      <button class="btn btn-sm join-item" ${prevDisabled ? "disabled" : ""} hx-get="${listPath(prevOffset)}" hx-target="#jobs-list" hx-push-url="${prevPageUrl}">Prev</button>
+      <button class="btn btn-sm join-item" ${nextDisabled ? "disabled" : ""} hx-get="${listPath(nextOffset)}" hx-target="#jobs-list" hx-push-url="${nextPageUrl}">Next</button>
+    </div>
+    ${JobsTable({ basePath, jobs })}
   `;
 }

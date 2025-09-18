@@ -12,7 +12,7 @@ export const queueJobsPage = new Hono<Env>().get("/:name/jobs", (c) => {
     basePath,
     `/api/queues/${encodeURIComponent(name)}/jobs/list?limit=25&offset=0`
   );
-  const overviewHref = withBasePath(
+  const _overviewHref = withBasePath(
     basePath,
     `/queues/${encodeURIComponent(name)}`
   );

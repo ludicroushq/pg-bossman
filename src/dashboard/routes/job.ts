@@ -13,7 +13,7 @@ export const jobPage = new Hono<Env>().get("/:name/jobs/:id", (c) => {
     basePath,
     `/api/queues/${encodeURIComponent(queueName)}/jobs/${encodeURIComponent(id)}`
   );
-  const queueHref = withBasePath(
+  const _queueHref = withBasePath(
     basePath,
     `/queues/${encodeURIComponent(queueName)}`
   );

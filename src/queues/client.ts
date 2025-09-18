@@ -45,35 +45,6 @@ export class QueueClient<TInput = unknown, _TOutput = void> {
       : await pgBoss.send(this.queueName, payload as object);
   }
 
-  /**
-   * Schedule a job with a cron expression
-   */
-  async schedule(
-    _name: string,
-    cron: string,
-    data?: TInput,
-    options?: PgBoss.ScheduleOptions
-  ): Promise<void> {
-    const pgBoss = await this.getPgBoss();
-    // Support empty payloads without special-casing types
-    const payload = (data as unknown) ?? {};
-
-    // In pg-boss v10+, schedules are tied to queue names.
-    // Use the queue/job name directly to ensure the queue exists.
-    return await pgBoss.schedule(
-      this.queueName,
-      cron,
-      payload as object,
-      options
-    );
-  }
-
-  /**
-   * Unschedule a scheduled job
-   */
-  async unschedule(_name?: string): Promise<void> {
-    const pgBoss = await this.getPgBoss();
-    // In pg-boss v10+, unschedule by queue/job name
-    return await pgBoss.unschedule(this.queueName);
-  }
+  // Intentionally no schedule/unschedule on client queues.
+  // Schedules are defined via createQueue().schedule() at build time.
 }

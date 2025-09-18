@@ -65,10 +65,9 @@ async function main() {
     }
 
     case "schedule": {
-      // Just set up schedules without starting worker
+      // Initialize and stop to ensure queues exist; schedules can be defined via queue builder
       const { bossman } = await import("./start");
-      await bossman.init();
-      await setupSchedules();
+      await bossman.getPgBoss();
       await bossman.stop({ close: true });
       process.exit(0);
       break;

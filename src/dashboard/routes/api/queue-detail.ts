@@ -21,7 +21,7 @@ export const queueDetail = new Hono<Env>().get(
       ? {
           created_on: rawMeta.createdOn,
           dead_letter: rawMeta.deadLetter,
-          expire_seconds: rawMeta.expireSeconds,
+          expire_seconds: rawMeta.expireInSeconds,
           name: rawMeta.name,
           policy: rawMeta.policy,
           retention_minutes: rawMeta.retentionMinutes,

@@ -1,9 +1,9 @@
 import { html } from "hono/html";
-import type { HtmlEscapedString } from "hono/utils/html";
 import type { JobRow } from "../../db";
 import { withBasePath } from "../utils/path";
 import { CodeBlock } from "./code-block";
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: UI rendering function with several branches
 export function JobDetailCard({
   job,
   basePath,

@@ -1,7 +1,7 @@
 import type PgBoss from "pg-boss";
 import { getDb, PGBOSS_SCHEMA } from "./types";
 
-export interface QueueStateCounts {
+export type QueueStateCounts = {
   created: number;
   retry: number;
   active: number;
@@ -9,7 +9,7 @@ export interface QueueStateCounts {
   cancelled: number;
   failed: number;
   all: number;
-}
+};
 
 /**
  * Get job counts by state for a specific queue

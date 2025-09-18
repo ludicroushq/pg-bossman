@@ -1,5 +1,4 @@
 import { html } from "hono/html";
-import type { HtmlEscapedString } from "hono/utils/html";
 import type { JobRow } from "../api/queue-jobs";
 import { withBasePath } from "../utils/path";
 

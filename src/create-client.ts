@@ -21,7 +21,8 @@ export type ClientStructure<T extends QueuesMap> = {
 };
 
 // Minimal proxy just for createClient
-export function createClient<TBossman extends PgBossmanInstance<QueuesMap>>(
+// biome-ignore lint/suspicious/noExplicitAny: Using any in constraint to preserve event payload inference while constraining the input to PgBossmanInstance
+export function createClient<TBossman extends PgBossmanInstance<any, any>>(
   options: PgBoss.ConstructorOptions
 ): TBossman extends PgBossmanInstance<infer R, infer E>
   ? {

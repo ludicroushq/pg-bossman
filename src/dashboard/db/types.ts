@@ -1,15 +1,15 @@
 import type PgBoss from "pg-boss";
 
 // Database interface that pg-boss exposes
-export interface PgBossDb {
+export type PgBossDb = {
   executeSql: (
     text: string,
     values?: unknown[]
   ) => Promise<{ rows: unknown[] }>;
-}
+};
 
 // Job row from the database
-export interface JobRow {
+export type JobRow = {
   id: string;
   name: string;
   state: "created" | "retry" | "active" | "completed" | "cancelled" | "failed";
@@ -30,7 +30,7 @@ export interface JobRow {
   policy: string | null;
   data?: unknown;
   output?: unknown;
-}
+};
 
 // Helper to get the database instance from pg-boss
 export function getDb(boss: PgBoss): PgBossDb {

@@ -72,7 +72,7 @@ src/
 
 1. [Client] Minimal proxy retained: createClient uses a tiny Proxy for typed access while worker uses a concrete map.
 
-2. **Builder Pattern**: Jobs are created using a fluent builder API that allows chaining options before defining the handler.
+2. **Builder Pattern**: Jobs are created using a fluent builder API that allows chaining options before defining the handler. A new `input<T>()` helper lets users declare the job input type up-front so `schedule()` can be type-checked early.
 
 3. **Type Inference**: Heavy use of TypeScript conditional types and inference to provide a tRPC-like developer experience where types flow through without explicit annotations.
 
@@ -103,8 +103,7 @@ src/
 ### Client Features
 
 - **send()**: Accepts single item or array; data optional for parameterless jobs
-- **schedule()**: Schedule jobs with cron expressions; schedules are tied to the job/queue name (pg-boss v10+)
-- **unschedule()**: Remove scheduled jobs for the queue
+- No runtime scheduling on client: scheduling is configured via `createQueue().schedule()` at build time.
 
 ## Testing
 
@@ -128,6 +127,13 @@ Tests use:
 4. **Scheduling semantics**: Schedule/unschedule target queue name directly (pg-boss v10).
 5. **Dashboard rewrite**: Removed React/Vite SPA. New dashboard is a pure Hono SSR handler mounted under a configurable basePath. No RPC/ORPC.
 6. **Client API**: `createClient` now exposes `getPgBoss(): Promise<PgBoss>` for read-only dashboard endpoints.
+7. **Dashboard Export**: `createDashboard` is re-exported from `src/dashboard/index.ts` and surfaced via the root `src/index.ts`. The final build (`dist/index.*`) includes `createDashboard` in the root export.
+8. **QueueOptions Update**: `QueueOptions` now extends `Partial<PgBoss.Queue>` (plus `batchSize`) instead of `Partial<PgBoss.SendOptions)`. This aligns queue creation/update with pg-boss v10 types (`policy`, `deadLetter`, retention/expire/retry fields).
+9. **Queue Update Typing**: When calling `updateQueue`, we include `{ name, ...options }` to satisfy pg-boss `Queue` typing where `name` is required in the options type.
+10. **JSX Augmentation**: Replaced `declare module "hono/jsx"` augmentation with a global `JSX` declaration in `src/dashboard/htmx.ts` to avoid typecheck errors when JSX module isn't imported. Dashboard continues to use `hono/html` template tags (no TSX).
+11. **Typecheck Script**: Added `"typecheck": "tsc -p tsconfig.json --noEmit"` to `package.json` for CI and local checks.
+12. **Biome/Ultracite Compliance**: Fixed lint issues across dashboard and examples (magic numbers → constants, removed unused imports/vars, added missing block statements, complexity ignores for UI rendering helpers). `npx ultracite fix` runs clean.
+13. **Examples Polishing**: Updated example server to avoid magic numbers and string concatenation; removed undefined `setupSchedules` call from example worker.
 
 ## Dashboard
 
@@ -138,13 +144,13 @@ Tests use:
   - `GET {basePath}/` → Full HTML page (navbar + Queues section)
   - `GET {basePath}/api/queues/queues-list-card` → HTML partial (Queues card) for htmx auto-refresh
 - htmx drives auto-refresh every 1s by fetching the partial; no JSON/RPC endpoints.
-- No auth, no bundler, no React/JSX.
+- No auth, no bundler, no React/JSX. Global JSX typing is present only to support potential TSX usage; current routes use `hono/html` templates.
 
 ## Common Patterns
 
 ### Creating a Job with No Parameters
 ```typescript
-const myJob = createJob().handler(() => {
+const myJob = createJob<void>().schedule("* * * * *").handler(() => {
   // No input needed
   return { success: true };
 });
@@ -176,11 +182,32 @@ const jobs = {
 };
 ```
 
+### Declaring Input Type Up-Front (recommended)
+// Declare the input type so schedule() enforces providing data
+const testJob = createQueue<{ user: { userId: string } }>()
+  .schedule("0 * * * *", { user: { userId: "123" } })
+  .handler(({ user }) => {
+    console.log(user.userId);
+  });
+
+// Alternatively, use the input() helper
+const testJob2 = createQueue()
+  .input<{ user: { userId: string } }>()
+  .schedule("0 * * * *", { user: { userId: "123" } })
+  .handler(({ user }) => {
+    console.log(user.userId);
+  });
+
+// Parameterless job can omit data
+const tick = createQueue<void>()
+  .schedule("* * * * *")
+  .handler(() => console.log("tick"));
+
 ## Known Issues & Limitations
 
 1. **Type inference for parameterless jobs**: Shows as `unknown` (acceptable tradeoff for simplicity)
 2. **Cron string validation**: Currently accepts any string (not validated as valid cron)
-3. **Client-only scheduling**: `createClient` cannot create queues; scheduling requires queues to already exist (e.g., a worker has initialized/created them)
+3. **Client-only scheduling**: Removed. Schedules are defined on queues via the builder; the client does not expose `schedule/unschedule`.
 
 ## Future Considerations
 
@@ -197,4 +224,4 @@ const jobs = {
 - **biome**: Linting and formatting
 
 ---
-*Last updated: Parameterless API simplification and schedule queue-name fix*
+*Last updated: Added `input<T>()` to builder for schedule-first typing, exported createDashboard, aligned QueueOptions, removed client scheduling, added typecheck script, and made ultracite fix pass.*

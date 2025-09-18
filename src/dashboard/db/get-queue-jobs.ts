@@ -1,10 +1,10 @@
 import type PgBoss from "pg-boss";
 import { getDb, type JobRow, PGBOSS_SCHEMA } from "./types";
 
-export interface GetQueueJobsResult {
+export type GetQueueJobsResult = {
   jobs: JobRow[];
   total: number;
-}
+};
 
 /**
  * Fetches jobs for a specific queue with pagination

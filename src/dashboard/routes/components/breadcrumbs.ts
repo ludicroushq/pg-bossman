@@ -14,7 +14,9 @@ export function Breadcrumbs({
   items: BreadcrumbItem[];
   basePath: string;
 }) {
-  if (!items.length) return html``;
+  if (!items.length) {
+    return html``;
+  }
 
   return html`
     <div class="breadcrumbs text-sm mb-4">

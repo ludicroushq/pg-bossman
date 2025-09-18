@@ -154,7 +154,7 @@ class BossmanWorker<
           retryDelay: job.options?.retryDelay,
           retryLimit: job.options?.retryLimit,
         } satisfies Partial<QueueUpdateOptions>;
-        await this.pgBoss.updateQueue(name, updateOptions);
+        await this.pgBoss.updateQueue(name, { name, ...updateOptions });
       }
     }
 
@@ -417,6 +417,7 @@ class BossmanBuilder<
   private router?: T;
   // eventsDef reserved for future; not used at runtime
   // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Reserved for future event type tracking
+  // biome-ignore lint/style/useReadonlyClassProperties: Assigned via builder method
   private eventsDef?: TEvents;
   private subscriptionMap: Map<string, RuntimeSubscription[]> = new Map();
 

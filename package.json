@@ -62,6 +62,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepare": "npx ultracite fix",
     "test": "vitest",
     "test:ui": "vitest --ui"

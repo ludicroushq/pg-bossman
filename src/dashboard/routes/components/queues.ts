@@ -1,5 +1,4 @@
 import { html } from "hono/html";
-import type { HtmlEscapedString } from "hono/utils/html";
 import { withBasePath } from "../utils/path";
 
 type Queue = { name?: string } & Record<string, unknown>;

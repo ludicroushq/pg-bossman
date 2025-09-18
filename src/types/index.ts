@@ -9,7 +9,9 @@ export type BatchQueueHandler<TInput, TOutput = void> = (
 ) => TOutput[] | Promise<TOutput[]>;
 
 // Queue options that pass through to pg-boss
-export interface QueueOptions extends Partial<PgBoss.SendOptions> {
+// Queue-level options that map to pg-boss Queue settings
+// Note: These are distinct from per-job SendOptions
+export interface QueueOptions extends Partial<PgBoss.Queue> {
   // Additional options can be added here
   batchSize?: number; // For batch handlers
 }

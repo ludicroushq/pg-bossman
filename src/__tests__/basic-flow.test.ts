@@ -55,10 +55,12 @@ describe("Basic Queue Flow", () => {
 
     // Define queues using the flat map
     const jobs = {
-      testJob: createQueue().handler((input: { message: string }) => {
-        counter.handler(input);
-        return Promise.resolve({ processed: true });
-      }),
+      testJob: createQueue()
+        .input<{ message: string }>()
+        .handler((input) => {
+          counter.handler(input);
+          return Promise.resolve({ processed: true });
+        }),
     };
 
     // Create bossman instance with PGlite db
@@ -121,8 +123,9 @@ describe("Basic Queue Flow", () => {
     // Define queues using the flat map
     const jobs = {
       batchJob: createQueue()
+        .input<{ id: number }>()
         .options({ batchSize: BATCH_SIZE })
-        .batchHandler((inputs: Array<{ id: number }>) => {
+        .batchHandler((inputs) => {
           processedBatches.push(inputs);
           return Promise.resolve(inputs.map((i) => ({ processedId: i.id })));
         }),
@@ -189,12 +192,12 @@ describe("Basic Queue Flow", () => {
     const counter = createJobCounter();
 
     const jobs = {
-      sendEmail: createQueue().handler(
-        (input: { to: string; subject: string }) => {
+      sendEmail: createQueue()
+        .input<{ to: string; subject: string }>()
+        .handler((input) => {
           counter.handler(input);
           return Promise.resolve();
-        }
-      ),
+        }),
     };
 
     const bossman = createBossman({ db }).register(jobs).build();
@@ -226,11 +229,13 @@ describe("Basic Queue Flow", () => {
 
     // Define a job with a sync handler (no async/await)
     const jobs = {
-      syncJob: createQueue().handler((input: { value: number }) => {
-        counter.handler(input);
-        // Return directly without Promise
-        return { doubled: input.value * 2 };
-      }),
+      syncJob: createQueue()
+        .input<{ value: number }>()
+        .handler((input) => {
+          counter.handler(input);
+          // Return directly without Promise
+          return { doubled: input.value * 2 };
+        }),
     };
 
     const bossman = createBossman({ db }).register(jobs).build();
@@ -275,8 +280,9 @@ describe("Basic Queue Flow", () => {
     // Define a batch job with a sync handler (no async/await)
     const jobs = {
       syncBatchJob: createQueue()
+        .input<{ id: number }>()
         .options({ batchSize: 2 })
-        .batchHandler((inputs: Array<{ id: number }>) => {
+        .batchHandler((inputs) => {
           processedBatches.push(inputs);
           // Return directly without Promise
           return inputs.map((i) => ({ processedId: i.id }));
@@ -330,20 +336,25 @@ describe("Basic Queue Flow", () => {
     // Define flat queues structure
     const jobs = {
       // Top-level job with dash in name
-      "data-export": createQueue().handler(() => {
-        return { exported: true };
-      }),
-      "emails.sendPasswordReset": createQueue().handler(
-        (input: { to: string }) => {
+      "data-export": createQueue()
+        .input<void>()
+        .handler(() => {
+          return { exported: true };
+        }),
+      "emails.sendPasswordReset": createQueue()
+        .input<{ to: string }>()
+        .handler((input) => {
           emailsSent.push({ to: input.to, type: "password-reset" });
-        }
-      ),
-      "emails.sendWelcome": createQueue().handler((input: { to: string }) => {
-        emailsSent.push({ to: input.to, type: "welcome" });
-      }),
+        }),
+      "emails.sendWelcome": createQueue()
+        .input<{ to: string }>()
+        .handler((input) => {
+          emailsSent.push({ to: input.to, type: "welcome" });
+        }),
       "images.resize": createQueue()
+        .input<{ url: string }>()
         .options({ batchSize: 2 })
-        .batchHandler((inputs: Array<{ url: string }>) => {
+        .batchHandler((inputs) => {
           return inputs.map((i) => ({ resized: i.url }));
         }),
     };
@@ -359,7 +370,7 @@ describe("Basic Queue Flow", () => {
     await bossman.client().queues["emails.sendPasswordReset"].send({
       to: "user2@example.com",
     });
-    await bossman.client().queues["data-export"].send({});
+    await bossman.client().queues["data-export"].send();
 
     // Start worker
     const originalOn = process.on;
@@ -396,9 +407,11 @@ describe("Basic Queue Flow", () => {
     const emailsSent: Array<{ to: string }> = [];
 
     const jobs = {
-      sendWelcomeEmail: createQueue().handler((input: { to: string }) => {
-        emailsSent.push({ to: input.to });
-      }),
+      sendWelcomeEmail: createQueue()
+        .input<{ to: string }>()
+        .handler((input) => {
+          emailsSent.push({ to: input.to });
+        }),
     };
 
     const events = defineEvents<{

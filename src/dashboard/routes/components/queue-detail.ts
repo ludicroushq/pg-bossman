@@ -1,5 +1,4 @@
 import { html } from "hono/html";
-import type { HtmlEscapedString } from "hono/utils/html";
 
 export type QueueMeta = {
   name: string;
@@ -10,8 +9,8 @@ export type QueueMeta = {
   expire_seconds?: number | null;
   retention_minutes?: number | null;
   dead_letter?: string | null;
-  created_on?: string | null;
-  updated_on?: string | null;
+  created_on?: Date | null;
+  updated_on?: Date | null;
 };
 
 export type QueueSchedule = {

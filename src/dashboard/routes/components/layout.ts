@@ -17,12 +17,11 @@ export function Layout({
         <meta charSet="utf-8" />
         <meta content="width=device-width, initial-scale=1" name="viewport" />
         <title>${title}</title>
-        <script src="https://unpkg.com/htmx.org@2.0.3"></script>
-        <script src="https://unpkg.com/idiomorph@0.3.0/dist/idiomorph-ext.min.js"></script>
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
         <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
       </head>
-      <body class="min-h-screen bg-base-200" hx-ext="morph">
+      <body class="min-h-screen bg-base-200">
         <nav class="navbar bg-base-100 shadow-sm sticky top-0 z-10">
           <div class="container mx-auto max-w-6xl px-4 navbar">
             <div class="navbar-start">

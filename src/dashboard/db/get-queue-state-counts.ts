@@ -58,3 +58,9 @@ export async function getQueueStateCounts(
 
   return counts;
 }
+
+/**
+ * Get job counts by state for a specific queue since a cutoff time
+ */
+// (Note) If needed in the future, a "since" variant can be added back, but
+// the dashboard currently uses aggregate counts for consistency with queue detail.

@@ -1,7 +1,11 @@
 // Main exports
 
 export { createBossman, type PgBossmanInstance } from "./create-bossman";
-export { type ClientStructure, createClient } from "./create-client";
+export {
+  type ClientStructure,
+  createClient,
+  type PgBossmanClientInstance,
+} from "./create-client";
 // Dashboard
 export { createDashboard } from "./dashboard";
 // Events

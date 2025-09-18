@@ -1,7 +1,7 @@
 import type PgBoss from "pg-boss";
 import { createLazyStarter, createPgBoss } from "./core/create-pg-boss";
 import type { PgBossmanInstance } from "./create-bossman";
-import type { EventKeys, EventPayloads } from "./events/index";
+import type { EventKeys, EventPayloads, EventsDef } from "./events/index";
 import { eventQueueName } from "./events/index";
 import { QueueClient } from "./queues/client";
 import type { InferInputFromQueue, QueuesMap } from "./types/index";
@@ -16,28 +16,41 @@ import type { InferInputFromQueue, QueuesMap } from "./types/index";
  *   connectionString: 'postgres://...'
  * });
  */
-export type ClientStructure<T extends QueuesMap> = {
-  [K in keyof T]: QueueClient<InferInputFromQueue<T[K]>, unknown>;
+export type ClientStructure<TQueues extends QueuesMap> = {
+  [K in keyof TQueues]: QueueClient<InferInputFromQueue<TQueues[K]>, unknown>;
+};
+
+export type PgBossmanClientInstance<
+  TQueues extends QueuesMap,
+  TEvents extends EventsDef<Record<string, unknown>>,
+> = {
+  queues: ClientStructure<TQueues>;
+  events: {
+    [K in EventKeys<TEvents>]: {
+      emit: (
+        payload: EventPayloads<TEvents>[K],
+        options?: PgBoss.SendOptions
+      ) => Promise<string | string[] | null>;
+    };
+  };
+  getPgBoss: () => Promise<PgBoss>;
 };
 
 // Minimal proxy just for createClient
-// biome-ignore lint/suspicious/noExplicitAny: Using any in constraint to preserve event payload inference while constraining the input to PgBossmanInstance
+// Overload 1: Loosely typed client (no generics). Useful when not deriving types from a bossman instance.
+export function createClient(
+  options: PgBoss.ConstructorOptions
+): PgBossmanClientInstance<QueuesMap, EventsDef<Record<string, unknown>>>;
+
+// Overload 2: Strongly typed client derived from a PgBossmanInstance
+// biome-ignore lint/suspicious/noExplicitAny: Loosen constraint to preserve event key/payload inference without forcing string index signature
 export function createClient<TBossman extends PgBossmanInstance<any, any>>(
   options: PgBoss.ConstructorOptions
-): TBossman extends PgBossmanInstance<infer R, infer E>
-  ? {
-      queues: ClientStructure<R>;
-      events: {
-        [K in EventKeys<E>]: {
-          emit: (
-            payload: EventPayloads<E>[K],
-            options?: PgBoss.SendOptions
-          ) => Promise<string | string[] | null>;
-        };
-      };
-      getPgBoss: () => Promise<PgBoss>;
-    }
-  : never {
+): TBossman extends PgBossmanInstance<infer TQueues, infer TEvents>
+  ? PgBossmanClientInstance<TQueues, TEvents>
+  : never;
+
+export function createClient(options: PgBoss.ConstructorOptions): unknown {
   const pgBoss = createPgBoss(options, "client");
   const ensureStarted = createLazyStarter(pgBoss);
 
@@ -73,22 +86,14 @@ export function createClient<TBossman extends PgBossmanInstance<any, any>>(
     }
   );
 
-  return {
+  const result = {
     events: eventsProxy,
     getPgBoss: () => ensureStarted(),
     queues: queuesProxy,
-  } as unknown as TBossman extends PgBossmanInstance<infer R, infer E>
-    ? {
-        queues: ClientStructure<R>;
-        events: {
-          [K in EventKeys<E>]: {
-            emit: (
-              payload: EventPayloads<E>[K],
-              options?: PgBoss.SendOptions
-            ) => Promise<string | string[] | null>;
-          };
-        };
-        getPgBoss: () => Promise<PgBoss>;
-      }
-    : never;
+  } satisfies PgBossmanClientInstance<
+    QueuesMap,
+    EventsDef<Record<string, unknown>>
+  >;
+
+  return result as unknown;
 }

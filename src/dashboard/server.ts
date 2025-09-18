@@ -4,7 +4,9 @@ import { routes } from "./routes";
 
 const TRAILING_SLASH_RE = /\/+$/;
 
+import type PgBoss from "pg-boss";
 import type { PgBossmanInstance } from "../create-bossman";
+import type { ClientStructure } from "../create-client";
 import type { EventsDef } from "../events/index";
 import type { QueuesMap } from "../types/index";
 import type { BossmanClient, Env } from "./types";
@@ -14,7 +16,32 @@ export function createDashboard<
     QueuesMap,
     EventsDef<Record<string, unknown>>
   >,
->(config: { client: BossmanClient<TBossman>; basePath?: string }) {
+>(config: {
+  client: BossmanClient<TBossman>;
+  basePath?: string;
+}): (req: Request) => Promise<Response>;
+
+export function createDashboard(config: {
+  client: {
+    queues: ClientStructure<QueuesMap>;
+    events: Record<string, unknown>;
+    getPgBoss: () => Promise<PgBoss>;
+  };
+  basePath?: string;
+}): (req: Request) => Promise<Response>;
+
+export function createDashboard(config: {
+  client:
+    | BossmanClient<
+        PgBossmanInstance<QueuesMap, EventsDef<Record<string, unknown>>>
+      >
+    | {
+        queues: ClientStructure<QueuesMap>;
+        events: Record<string, unknown>;
+        getPgBoss: () => Promise<PgBoss>;
+      };
+  basePath?: string;
+}) {
   let app = new Hono<Env>();
   const client = config.client;
   const normalizedBase = config.basePath
@@ -25,7 +52,8 @@ export function createDashboard<
   }
 
   app.use("*", async (c, next) => {
-    c.set("bossmanClient", client);
+    // biome-ignore lint/suspicious/noExplicitAny: Environment stores a generic client
+    c.set("bossmanClient", client as unknown as BossmanClient<any>);
     if (normalizedBase) {
       c.set("basePath", normalizedBase);
     }

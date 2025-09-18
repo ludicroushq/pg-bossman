@@ -95,7 +95,9 @@ export function QueueDetailCard({
     return html`<div class="alert alert-error"><span>Queue not found</span></div>`;
   }
 
-  const name = meta.name;
+  const RAW_EVENT_PREFIX = "__bossman_event__";
+  const isEvent = meta.name?.startsWith(RAW_EVENT_PREFIX) ?? false;
+  const name = isEvent ? meta.name.slice(RAW_EVENT_PREFIX.length) : meta.name;
   const total = counts
     ? counts.created +
       counts.retry +
@@ -110,7 +112,7 @@ export function QueueDetailCard({
       <div class="card-body gap-4">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="card-title">${name}</h2>
+            <h2 class="card-title">${isEvent ? `Event: ${name}` : name}</h2>
             <p class="text-sm text-base-content/60">Policy: ${meta.policy ?? "standard"}</p>
           </div>
         </div>

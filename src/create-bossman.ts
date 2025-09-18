@@ -1,5 +1,6 @@
 import type PgBoss from "pg-boss";
 import { createPgBoss } from "./core/create-pg-boss";
+import type { PgBossmanClientInstance } from "./create-client";
 import type { EventKeys, EventPayloads, EventsDef } from "./events/index";
 import { eventQueueName } from "./events/index";
 import { QueueClient } from "./queues/client";
@@ -15,8 +16,8 @@ import { isBatchQueue, isPromise } from "./types/index";
  * Worker instance with queue processing capabilities
  * This class is internal to create-bossman and contains all worker logic
  */
-type ClientStructure<T extends QueuesMap> = {
-  [K in keyof T]: QueueClient<InferInputFromQueue<T[K]>, unknown>;
+export type ClientStructure<TQueues extends QueuesMap> = {
+  [K in keyof TQueues]: QueueClient<InferInputFromQueue<TQueues[K]>, unknown>;
 };
 
 type RuntimeSubscription = {
@@ -25,7 +26,7 @@ type RuntimeSubscription = {
 };
 
 class BossmanWorker<
-  T extends QueuesMap,
+  TQueues extends QueuesMap,
   TEvents extends EventsDef<Record<string, unknown>> = EventsDef<
     Record<string, unknown>
   >,
@@ -37,13 +38,13 @@ class BossmanWorker<
   private readonly subs: Map<string, RuntimeSubscription[]> = new Map();
 
   // Internal client structure for job access
-  private readonly clientMap: ClientStructure<T>;
+  private readonly clientMap: ClientStructure<TQueues>;
   // events are exposed via client() namespace
 
   constructor(
     pgBoss: PgBoss,
     jobs: Map<string, QueueDefinition>,
-    router: T,
+    router: TQueues,
     subscriptions?: Map<string, RuntimeSubscription[]>
   ) {
     this.pgBoss = pgBoss;
@@ -63,11 +64,11 @@ class BossmanWorker<
     for (const name of Object.keys(router)) {
       client[name] = new QueueClient(ensureStarted, name);
     }
-    this.clientMap = client as ClientStructure<T>;
+    this.clientMap = client as ClientStructure<TQueues>;
   }
 
   client(): {
-    queues: ClientStructure<T>;
+    queues: ClientStructure<TQueues>;
     events: {
       [E in EventKeys<TEvents>]: {
         emit: (
@@ -76,8 +77,9 @@ class BossmanWorker<
         ) => Promise<string | string[] | null>;
       };
     };
+    getPgBoss: () => Promise<PgBoss>;
   } {
-    const queues = this.clientMap as ClientStructure<T>;
+    const queues = this.clientMap as ClientStructure<TQueues>;
     const events = new Proxy(
       {},
       {
@@ -106,7 +108,11 @@ class BossmanWorker<
       };
     };
 
-    return { events, queues };
+    const getPgBoss = async () => {
+      await this.init();
+      return this.pgBoss;
+    };
+    return { events, getPgBoss, queues };
   }
 
   /**
@@ -407,14 +413,14 @@ class BossmanWorker<
  * Builder for creating a pg-bossman instance
  */
 class BossmanBuilder<
-  T extends QueuesMap = Record<string, QueueWithoutName>,
+  TQueues extends QueuesMap = Record<string, QueueWithoutName>,
   TEvents extends EventsDef<Record<string, unknown>> = EventsDef<
     Record<string, unknown>
   >,
 > {
   private readonly pgBoss: PgBoss;
   // biome-ignore lint/style/useReadonlyClassProperties: This is reassigned in the register method
-  private router?: T;
+  private router?: TQueues;
   // eventsDef reserved for future; not used at runtime
   // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Reserved for future event type tracking
   // biome-ignore lint/style/useReadonlyClassProperties: Assigned via builder method
@@ -428,17 +434,19 @@ class BossmanBuilder<
   /**
    * Register queues with the bossman instance
    */
-  register<R extends QueuesMap>(router: R): BossmanBuilder<R, TEvents> {
+  register<TNewQueues extends QueuesMap>(
+    router: TNewQueues
+  ): BossmanBuilder<TNewQueues, TEvents> {
     // We need to cast here because TypeScript can't track the type change
-    const builder = this as unknown as BossmanBuilder<R, TEvents>;
+    const builder = this as unknown as BossmanBuilder<TNewQueues, TEvents>;
     builder.router = router;
     return builder;
   }
 
-  events<E extends EventsDef<Record<string, unknown>>>(
-    events: E
-  ): BossmanBuilder<T, E> {
-    const builder = this as unknown as BossmanBuilder<T, E>;
+  events<TNewEvents extends EventsDef<Record<string, unknown>>>(
+    events: TNewEvents
+  ): BossmanBuilder<TQueues, TNewEvents> {
+    const builder = this as unknown as BossmanBuilder<TQueues, TNewEvents>;
     builder.eventsDef = events;
     return builder;
   }
@@ -446,22 +454,24 @@ class BossmanBuilder<
   subscriptions(
     map: {
       [E in keyof EventPayloads<TEvents>]?: Partial<{
-        [Q in keyof T]: EventPayloads<TEvents>[E] extends InferInputFromQueue<
-          T[Q]
+        [Q in keyof TQueues]: EventPayloads<TEvents>[E] extends InferInputFromQueue<
+          TQueues[Q]
         >
           ?
               | true
               | {
                   map: (
                     p: EventPayloads<TEvents>[E]
-                  ) => InferInputFromQueue<T[Q]>;
+                  ) => InferInputFromQueue<TQueues[Q]>;
                 }
           : {
-              map: (p: EventPayloads<TEvents>[E]) => InferInputFromQueue<T[Q]>;
+              map: (
+                p: EventPayloads<TEvents>[E]
+              ) => InferInputFromQueue<TQueues[Q]>;
             };
       }>;
     }
-  ): BossmanBuilder<T, TEvents> {
+  ): BossmanBuilder<TQueues, TEvents> {
     const subs = new Map<string, RuntimeSubscription[]>();
     for (const [event, value] of Object.entries(
       map as Record<string, unknown>
@@ -492,7 +502,7 @@ class BossmanBuilder<
   /**
    * Build the final bossman instance
    */
-  build(): PgBossmanInstance<T, TEvents> {
+  build(): PgBossmanInstance<TQueues, TEvents> {
     if (!this.router) {
       throw new Error("No queues registered. Call .register() before .build()");
     }
@@ -513,7 +523,7 @@ class BossmanBuilder<
       jobMap,
       this.router,
       this.subscriptionMap
-    ) as PgBossmanInstance<T, TEvents>;
+    ) as PgBossmanInstance<TQueues, TEvents>;
   }
 }
 
@@ -540,7 +550,7 @@ export function createBossman(
  * The full pg-bossman instance with worker methods and client structure
  */
 export type PgBossmanInstance<
-  T extends QueuesMap,
+  TQueues extends QueuesMap,
   TEvents extends EventsDef<Record<string, unknown>> = EventsDef<
     Record<string, unknown>
   >,
@@ -552,15 +562,5 @@ export type PgBossmanInstance<
   getPgBoss: () => Promise<PgBoss>;
 
   // Bossman client accessor (queues + events emitters)
-  client: () => {
-    queues: ClientStructure<T>;
-    events: {
-      [E in EventKeys<TEvents>]: {
-        emit: (
-          payload: EventPayloads<TEvents>[E],
-          options?: PgBoss.SendOptions
-        ) => Promise<string | string[] | null>;
-      };
-    };
-  };
+  client: () => PgBossmanClientInstance<TQueues, TEvents>;
 };

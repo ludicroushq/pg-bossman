@@ -1,6 +1,6 @@
 import { html } from "hono/html";
 import type { JobRow } from "../api/queue-jobs";
-import { withBasePath } from "../utils/path";
+import { api } from "../utils/api";
 
 export function JobItem({ job, basePath }: { job: JobRow; basePath: string }) {
   let stateClass = "";
@@ -13,10 +13,7 @@ export function JobItem({ job, basePath }: { job: JobRow; basePath: string }) {
   } else if (job.state === "retry") {
     stateClass = "badge-warning";
   }
-  const jobHref = withBasePath(
-    basePath,
-    `/queues/${encodeURIComponent(job.name)}/jobs/${encodeURIComponent(job.id)}`
-  );
+  const jobHref = `${basePath || ""}/queues/${encodeURIComponent(job.name)}/jobs/${encodeURIComponent(job.id)}`;
   return html`<tr>
     <td class="font-mono text-xs"><a class="link" href="${jobHref}">${job.id}</a></td>
     <td><span class="badge ${stateClass}">${job.state}</span></td>
@@ -79,8 +76,8 @@ export function JobsList({
   const nextOffset = Math.min(total, offset + limit);
   const prevDisabled = offset <= 0;
   const nextDisabled = nextOffset >= total;
-  const listPath = (o: number) =>
-    `${basePath}/api/queues/${encodeURIComponent(name)}/jobs/list?limit=${limit}&offset=${o}`;
+  const routes = api(basePath);
+  const listPath = (o: number) => routes.queueJobsList(name, limit, o);
   return html`
     <div id="jobs-list">
       <div hx-swap-oob="innerHTML:#jobs-count">Showing ${start}–${end} of ${total}</div>
@@ -88,8 +85,8 @@ export function JobsList({
       <div class="flex items-center justify-between text-sm mt-2">
         <div>Showing ${start}–${end} of ${total}</div>
         <div class="join">
-          <button class="btn btn-sm join-item" ${prevDisabled ? "disabled" : ""} hx-get="${listPath(prevOffset)}" hx-target="#jobs-list" hx-swap="morph">Prev</button>
-          <button class="btn btn-sm join-item" ${nextDisabled ? "disabled" : ""} hx-get="${listPath(nextOffset)}" hx-target="#jobs-list" hx-swap="morph">Next</button>
+          <button class="btn btn-sm join-item" ${prevDisabled ? "disabled" : ""} hx-get="${listPath(prevOffset)}" hx-target="#jobs-list">Prev</button>
+          <button class="btn btn-sm join-item" ${nextDisabled ? "disabled" : ""} hx-get="${listPath(nextOffset)}" hx-target="#jobs-list">Next</button>
         </div>
       </div>
     </div>

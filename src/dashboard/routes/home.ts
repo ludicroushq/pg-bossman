@@ -3,11 +3,15 @@ import { html } from "hono/html";
 import type { Env } from "../types";
 import { Breadcrumbs } from "./components/breadcrumbs";
 import { Layout } from "./components/layout";
-import { withBasePath } from "./utils/path";
+import { RefreshControl } from "./components/refresh-control";
+import { api } from "./utils/api";
 
 export const home = new Hono<Env>().get((c) => {
   const basePath = c.get("basePath") ?? "";
-  const queuesPath = withBasePath(basePath, "/api/queues/queues-list-card");
+  const routes = api(basePath);
+  const queuesPath = routes.queuesCard();
+  const eventsPath = routes.eventsCard();
+  const refreshOn = (c.req.query("refresh") ?? "on") !== "off";
   return c.html(
     Layout({
       basePath,
@@ -15,26 +19,33 @@ export const home = new Hono<Env>().get((c) => {
         ${Breadcrumbs({
           basePath,
           items: [{ label: "Dashboard" }],
+          rightContent: RefreshControl({
+            indicatorId: "home-page-indicator",
+            refreshOn,
+            toggleHref: `${basePath}${refreshOn ? "?refresh=off" : "?refresh=on"}`,
+          }),
         })}
         <div class="grid gap-6">
-          <section id="queues-card" hx-get="${queuesPath}" hx-trigger="load" hx-swap="morph" class="card bg-base-100 shadow-xl">
-            <div class="card-body gap-4">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <h2 class="card-title">Queues</h2>
-                  <div class="badge">—</div>
-                </div>
-              </div>
-              <div class="skeleton h-24 w-full"></div>
-              <div class="flex items-center justify-between pt-2 border-t border-base-200 text-xs text-base-content/60">
-                <div class="flex items-center gap-2">
-                  <span class="loading loading-spinner loading-xs"></span>
-                  <span>Loading…</span>
-                </div>
-                <div>&nbsp;</div>
-              </div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-lg font-semibold">Queues</h2>
             </div>
-          </section>
+            <section id="queues-card" hx-get="${queuesPath}" hx-trigger="${refreshOn ? "load, every 5s" : "load"}" hx-indicator="#home-page-indicator" class="card bg-base-100 shadow">
+              <div class="p-2">
+                <div class="skeleton h-24 w-full"></div>
+              </div>
+            </section>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-lg font-semibold">Events</h2>
+            </div>
+            <section id="events-card" hx-get="${eventsPath}" hx-trigger="${refreshOn ? "load, every 5s" : "load"}" hx-indicator="#home-page-indicator" class="card bg-base-100 shadow">
+              <div class="p-2">
+                <div class="skeleton h-24 w-full"></div>
+              </div>
+            </section>
+          </div>
         </div>
       `,
     })

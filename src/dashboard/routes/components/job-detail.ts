@@ -1,6 +1,6 @@
 import { html } from "hono/html";
 import type { JobRow } from "../../db";
-import { withBasePath } from "../utils/path";
+import { api } from "../utils/api";
 import { CodeBlock } from "./code-block";
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: UI rendering function with several branches
@@ -37,14 +37,13 @@ export function JobDetailCard({
     stateIcon = "○";
   }
 
-  const queueHref = withBasePath(
-    basePath,
-    `/queues/${encodeURIComponent(job.name)}`
-  );
-  const refreshPath = withBasePath(
-    basePath,
-    `/api/queues/${encodeURIComponent(job.name)}/jobs/${encodeURIComponent(job.id)}`
-  );
+  const RAW_EVENT_PREFIX = "__bossman_event__";
+  const isEvent = job.name.startsWith(RAW_EVENT_PREFIX);
+  const displayQueueName = isEvent
+    ? job.name.slice(RAW_EVENT_PREFIX.length)
+    : job.name;
+  const queueHref = `${basePath || ""}/queues/${encodeURIComponent(job.name)}`;
+  const refreshPath = api(basePath).jobDetail(job.name, job.id);
 
   return html`
     <div class="card bg-base-100 shadow overflow-hidden">
@@ -57,7 +56,6 @@ export function JobDetailCard({
               class="btn btn-sm btn-ghost"
               hx-get="${refreshPath}"
               hx-target="#job-detail"
-              hx-swap="morph"
               title="Refresh now"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -79,7 +77,9 @@ export function JobDetailCard({
               <div class="text-sm space-y-1">
                 <div class="flex justify-between">
                   <span class="opacity-60">Queue:</span>
-                  <a href="${queueHref}" class="link link-primary">${job.name}</a>
+                  <a href="${queueHref}" class="link link-primary">${
+                    isEvent ? `Event: ${displayQueueName}` : displayQueueName
+                  }</a>
                 </div>
                 <div class="flex justify-between">
                   <span class="opacity-60">Priority:</span>

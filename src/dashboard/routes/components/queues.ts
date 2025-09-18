@@ -1,13 +1,13 @@
 import { html } from "hono/html";
-import { withBasePath } from "../utils/path";
+import type { QueueStateCounts } from "../../db/get-queue-state-counts";
 
-type Queue = { name?: string } & Record<string, unknown>;
+type QueueRow = { name: string; counts: QueueStateCounts };
 
 function QueuesTable({
   queues,
   basePath,
 }: {
-  queues: Queue[];
+  queues: QueueRow[];
   basePath: string;
 }) {
   if (!queues?.length) {
@@ -17,27 +17,37 @@ function QueuesTable({
       </div>
     `;
   }
-
-  const count = queues.length;
   return html`
     <div class="overflow-x-auto">
       <table class="table w-full">
         <thead>
           <tr>
-            <th class="flex items-center gap-2">
-              <span>Queues</span>
-              <span class="badge badge-neutral">${count}</span>
-            </th>
+            <th>Name</th>
+            <th>Total</th>
+            <th>Pending</th>
+            <th>Active</th>
+            <th>Completed</th>
+            <th>Failed</th>
+            <th>Cancelled</th>
           </tr>
         </thead>
         <tbody class="table-zebra">
           ${queues.map((q) => {
-            const href = withBasePath(
-              basePath,
-              `/queues/${encodeURIComponent(q.name ?? "")}`
-            );
+            const href = `${basePath || ""}/queues/${encodeURIComponent(q.name)}`;
+            const RAW_EVENT_PREFIX = "__bossman_event__";
+            const displayName = q.name.startsWith(RAW_EVENT_PREFIX)
+              ? q.name.slice(RAW_EVENT_PREFIX.length)
+              : q.name;
+            const c = q.counts;
+            const pending = (c.created ?? 0) + (c.retry ?? 0);
             return html`<tr>
-              <td class="font-mono"><a class="link" href="${href}">${q.name ?? "(unnamed)"}</a></td>
+              <td class="font-mono"><a class="link" href="${href}">${displayName}</a></td>
+              <td>${c.all}</td>
+              <td>${pending}</td>
+              <td>${c.active}</td>
+              <td class="text-success">${c.completed}</td>
+              <td class="text-error">${c.failed}</td>
+              <td>${c.cancelled}</td>
             </tr>`;
           })}
         </tbody>
@@ -50,36 +60,8 @@ export function QueuesCard({
   queues,
   basePath,
 }: {
-  queues: Queue[];
+  queues: QueueRow[];
   basePath: string;
 }) {
-  const refreshPath = withBasePath(basePath, "/api/queues/queues-list-card");
-  const updatedAt = new Date().toLocaleTimeString();
-
-  return html`
-    <section id="queues-card" class="queues-card" hx-get="${refreshPath}" hx-trigger="every 1s" hx-swap="morph" hx-indicator="#queues-indicator">
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body gap-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <h2 class="card-title">Queues</h2>
-            </div>
-            <div class="flex items-center gap-2">
-              <button class="btn btn-primary btn-sm" hx-get="${refreshPath}" hx-target="#queues-card" hx-swap="morph" hx-indicator="#queues-indicator">
-                Refresh
-              </button>
-            </div>
-          </div>
-          ${QueuesTable({ basePath, queues })}
-          <div class="flex items-center justify-between pt-2 border-t border-base-200 text-xs text-base-content/60">
-            <div class="flex items-center gap-2" id="queues-indicator">
-              <span class="loading loading-spinner loading-xs"></span>
-              <span>Refreshing…</span>
-            </div>
-            <div>Updated at ${updatedAt}</div>
-          </div>
-        </div>
-      </div>
-    </section>
-  `;
+  return html`${QueuesTable({ basePath, queues })}`;
 }

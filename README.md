@@ -27,18 +27,17 @@ pnpm add pg-bossman pg-boss
 Define queues (flat map), optionally add a schedule, build and start the worker. The client API is type-safe and identical in both the worker and a send-only client.
 
 ```ts
-import { createBossman, createClient, createQueue } from 'pg-bossman'
+import { createBossman, createClient, createQueue } from "pg-bossman";
 
 const queues = {
   // single job
-  sendWelcomeEmail: createQueue()
-    .handler((input: { to: string }) => {
-      /* ...send email... */
-    }),
+  sendWelcomeEmail: createQueue().handler((input: { to: string }) => {
+    /* ...send email... */
+  }),
 
   // scheduled job (one schedule per queue)
   tick: createQueue<void>()
-    .schedule('* * * * *')
+    .schedule("* * * * *")
     .handler(() => {
       /* ...do work... */
     }),
@@ -46,31 +45,35 @@ const queues = {
   // batch job
   resizeImages: createQueue()
     .options({ batchSize: 10 })
-    .batchHandler((items: Array<{ url: string }>) => items.map(i => ({ ok: i.url }))),
-}
+    .batchHandler((items: Array<{ url: string }>) =>
+      items.map((i) => ({ ok: i.url }))
+    ),
+};
 
 // Build + start the worker
 const bossman = createBossman({ connectionString: process.env.DATABASE_URL! })
   .register(queues)
-  .build()
+  .build();
 
-await bossman.start()
+await bossman.start();
 
 // Send a job (from the worker)
-await bossman.client.queues.sendWelcomeEmail.send({ to: 'user@example.com' })
+await bossman.client.queues.sendWelcomeEmail.send({ to: "user@example.com" });
 
 // Send-only client (no handlers bundled)
-type Bossman = typeof bossman
-const client = createClient<Bossman>({ connectionString: process.env.DATABASE_URL! })
-await client.queues.sendWelcomeEmail.send({ to: 'user@example.com' })
+type Bossman = typeof bossman;
+const client = createClient<Bossman>({
+  connectionString: process.env.DATABASE_URL!,
+});
+await client.queues.sendWelcomeEmail.send({ to: "user@example.com" });
 ```
 
 Optional: typed events with subscriptions
 
 ```ts
-import { defineEvents } from 'pg-bossman'
+import { defineEvents } from "pg-bossman";
 
-const events = defineEvents<{ userCreated: { email: string } }>()
+const events = defineEvents<{ userCreated: { email: string } }>();
 
 const bossman = createBossman({ connectionString: process.env.DATABASE_URL! })
   .register(queues)
@@ -78,9 +81,9 @@ const bossman = createBossman({ connectionString: process.env.DATABASE_URL! })
   .subscriptions({
     userCreated: { sendWelcomeEmail: { map: (e) => ({ to: e.email }) } },
   })
-  .build()
+  .build();
 
-await bossman.client.events.userCreated.emit({ email: 'user@example.com' })
+await bossman.client.events.userCreated.emit({ email: "user@example.com" });
 ```
 
 ## Dashboard (SSR)
@@ -88,21 +91,14 @@ await bossman.client.events.userCreated.emit({ email: 'user@example.com' })
 Mount the built-in Hono SSR dashboard anywhere (no bundler, no React). It reads via the client only.
 
 ```ts
-import { createDashboard } from 'pg-bossman'
+import { createDashboard } from "pg-bossman";
 
 export const GET = createDashboard({
   client: bossman.client,
-  basePath: '/dashboard',
-})
-export const POST = GET // for runtimes that need both
+  basePath: "/dashboard",
+});
+export const POST = GET; // for runtimes that need both
 ```
-
-## Notes
-
-- Flat jobs map with full TS inference over inputs
-- Schedules are declared on queues and reconciled at startup
-- Send-only client supports `send`; no client runtime scheduling
-- Batch handlers always receive arrays
 
 ## License
 

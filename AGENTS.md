@@ -136,6 +136,7 @@ Tests use:
 13. **Examples Polishing**: Updated example server to avoid magic numbers and string concatenation; removed undefined `setupSchedules` call from example worker.
 14. **Jobs List Pagination Refresh**: The jobs list auto-refresh keeps pagination aligned by sending an OOB `outerHTML` swap for `#jobs-poller` that rewrites its `hx-get` with the active offset and (when enabled) sets `hx-trigger="every 5s"`. The server derives the offset and refresh toggle from `HX-Current-URL`, so polling hits the same page the user is viewing without resetting to the first batch, the initial markup leaves the poller idle to avoid duplicate requests on page load, and the refresh toggle reuses the current URL so existing query params (e.g. `page=8`) are preserved when flipping the state.
 15. **Client Accessor Change**: `bossman.client` is now a property (not a function). Update usages from `bossman.client().queues...` to `bossman.client.queues...`. Dashboard `createDashboard` accepts `client: bossman.client`.
+16. **Refresh Toggle OOB Update**: The queue jobs list response now emits an OOB swap that re-renders the refresh control with the latest URL metadata (derived from `HX-Current-URL`). This keeps the "turn on/off" toggle anchored to the current pagination/filter query params instead of jumping back to the first page when the refresh state is flipped.
 
 ## Dashboard
 

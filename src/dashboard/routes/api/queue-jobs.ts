@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { getQueueJobs } from "../../db";
 import type { Env } from "../../types";
 import { JobsList, JobsTable } from "../components/jobs";
+import { withBasePath } from "../utils/path";
+import { buildRefreshToggleHref } from "../utils/query";
 
 // Re-export JobRow type for components
 export type { JobRow } from "../../db";
@@ -33,29 +35,53 @@ export const queueJobs = new Hono<Env>()
     const limit = toInt(url.searchParams.get("limit"), DEFAULT_PAGE_LIMIT);
     let offset = toInt(url.searchParams.get("offset"), 0);
     const basePath = c.get("basePath") ?? "";
-    // Preserve refresh toggle from the page using HX-Current-URL header
     const currentUrlHeader = c.req.header("HX-Current-URL");
     let refreshOn = true;
+    let currentPageUrl: URL | null = null;
     if (currentUrlHeader) {
       try {
-        const current = new URL(currentUrlHeader);
-        // If no offset was provided, infer it from the page query param
+        currentPageUrl = new URL(currentUrlHeader);
         if (!url.searchParams.has("offset")) {
-          const pageParam = current.searchParams.get("page");
+          const pageParam = currentPageUrl.searchParams.get("page");
           const page =
             Number.isFinite(Number(pageParam)) && Number(pageParam) >= 1
               ? Math.floor(Number(pageParam))
               : 1;
           offset = (page - 1) * limit;
         }
-        refreshOn = (current.searchParams.get("refresh") ?? "on") !== "off";
+        refreshOn =
+          (currentPageUrl.searchParams.get("refresh") ?? "on") !== "off";
       } catch {
-        // ignore parse errors and default to true
+        currentPageUrl = null;
       }
     }
+    const fallbackPage = Math.floor(offset / Math.max(1, limit)) + 1;
+    const fallbackPath = withBasePath(
+      basePath,
+      `/queues/${encodeURIComponent(name)}/jobs`
+    );
+    const fallbackUrl = new URL(
+      `${fallbackPath}?page=${fallbackPage}`,
+      "http://pg-bossman.local"
+    );
+    const toggleHref = buildRefreshToggleHref(
+      (currentPageUrl ?? fallbackUrl).toString(),
+      refreshOn
+    );
     // Recompute query using the possibly updated offset
     const { jobs, total } = await getQueueJobs(boss, name, limit, offset);
     return c.html(
-      JobsList({ basePath, jobs, limit, name, offset, refreshOn, total })
+      JobsList({
+        basePath,
+        jobs,
+        limit,
+        name,
+        offset,
+        refreshControlId: "jobs-refresh-control",
+        refreshIndicatorId: "jobs-page-indicator",
+        refreshOn,
+        refreshToggleHref: toggleHref,
+        total,
+      })
     );
   });

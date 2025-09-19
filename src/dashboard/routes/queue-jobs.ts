@@ -43,6 +43,7 @@ export const queueJobsPage = new Hono<Env>().get("/:name/jobs", (c) => {
             { label: "Jobs" },
           ],
           rightContent: RefreshControl({
+            controlId: "jobs-refresh-control",
             indicatorId: "jobs-page-indicator",
             refreshOn,
             toggleHref,

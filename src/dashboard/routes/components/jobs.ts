@@ -1,6 +1,7 @@
 import { html } from "hono/html";
 import type { JobRow } from "../api/queue-jobs";
 import { api } from "../utils/api";
+import { RefreshControl } from "./refresh-control";
 
 export function JobItem({ job, basePath }: { job: JobRow; basePath: string }) {
   let stateClass = "";
@@ -63,6 +64,9 @@ export function JobsList({
   total,
   basePath,
   refreshOn,
+  refreshToggleHref,
+  refreshControlId,
+  refreshIndicatorId,
 }: {
   jobs: JobRow[];
   name: string;
@@ -71,6 +75,9 @@ export function JobsList({
   total: number;
   basePath: string;
   refreshOn: boolean;
+  refreshToggleHref: string;
+  refreshControlId: string;
+  refreshIndicatorId: string;
 }) {
   const start = total === 0 ? 0 : offset + 1;
   const end = Math.min(offset + limit, total);
@@ -87,7 +94,15 @@ export function JobsList({
   const nextPageUrl = `${basePath}/queues/${encodeURIComponent(name)}/jobs?page=${nextPage}`;
   const caption = `Showing ${start}–${end} of ${total}`;
   const pollerPath = listPath(offset);
+  const refreshControl = RefreshControl({
+    controlId: refreshControlId,
+    indicatorId: refreshIndicatorId,
+    refreshOn,
+    swapTargetId: refreshControlId,
+    toggleHref: refreshToggleHref,
+  });
   return html`
+    ${refreshControl}
     <div
       hx-swap-oob="outerHTML:#jobs-poller"
       id="jobs-poller"

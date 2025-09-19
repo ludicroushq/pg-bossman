@@ -5,12 +5,20 @@ export function RefreshControl({
   refreshOn,
   indicatorId,
   toggleHref,
+  controlId,
+  swapTargetId,
 }: {
   refreshOn: boolean;
   indicatorId: string;
   toggleHref: string;
+  controlId?: string;
+  swapTargetId?: string;
 }): HtmlEscapedString {
-  const content = html`<div class="flex items-center gap-3 text-sm">
+  const idAttr = controlId ? html` id="${controlId}"` : html``;
+  const swapAttr = swapTargetId
+    ? html` hx-swap-oob="outerHTML:#${swapTargetId}"`
+    : html``;
+  const content = html`<div${idAttr}${swapAttr} class="flex items-center gap-3 text-sm">
     ${
       refreshOn
         ? html`<div class="flex items-center gap-2" id="${indicatorId}">

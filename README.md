@@ -22,6 +22,8 @@ pnpm add pg-bossman pg-boss
 # or: npm i pg-bossman pg-boss
 ```
 
+**NOTE:** Until pg-bossman hits 1.0, breaking changes may be made on minor versions (0.x.0) and the remaining changes will be patch versions (0.0.x)
+
 ## Quick Start
 
 Define queues (flat map), optionally add a schedule, build and start the worker. The client API is type-safe and identical in both the worker and a send-only client.

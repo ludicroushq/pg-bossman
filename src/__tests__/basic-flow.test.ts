@@ -69,7 +69,7 @@ describe("Basic Queue Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send a job via client namespace
-    const jobId = await bossman.client().queues.testJob.send({
+    const jobId = await bossman.client.queues.testJob.send({
       message: "Hello, world!",
     });
     expect(jobId).toBeTruthy();
@@ -137,14 +137,14 @@ describe("Basic Queue Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send first job to initialize pg-boss
-    const firstJobId = await bossman.client().queues.batchJob.send({ id: 1 });
+    const firstJobId = await bossman.client.queues.batchJob.send({ id: 1 });
 
     // Send multiple jobs via client namespace
     const remainingJobIds = await Promise.all([
-      bossman.client().queues.batchJob.send({ id: 2 }),
-      bossman.client().queues.batchJob.send({ id: 3 }),
-      bossman.client().queues.batchJob.send({ id: 4 }),
-      bossman.client().queues.batchJob.send({ id: 5 }),
+      bossman.client.queues.batchJob.send({ id: 2 }),
+      bossman.client.queues.batchJob.send({ id: 3 }),
+      bossman.client.queues.batchJob.send({ id: 4 }),
+      bossman.client.queues.batchJob.send({ id: 5 }),
     ]);
 
     const jobIds = [firstJobId, ...remainingJobIds];
@@ -205,12 +205,10 @@ describe("Basic Queue Flow", () => {
     bossmanInstances.push(bossman);
 
     // Test that the send method exists and works via client namespace
-    const jobId = await bossman
-      .client()
-      .queues.sendEmail.send(
-        { subject: "Test", to: "test@example.com" },
-        { priority: HIGH_PRIORITY }
-      );
+    const jobId = await bossman.client.queues.sendEmail.send(
+      { subject: "Test", to: "test@example.com" },
+      { priority: HIGH_PRIORITY }
+    );
 
     expect(jobId).toBeTruthy();
 
@@ -245,7 +243,7 @@ describe("Basic Queue Flow", () => {
     // Initialize pg-boss for sending
 
     // Send a job
-    const jobId = await bossman.client().queues.syncJob.send({ value: 5 });
+    const jobId = await bossman.client.queues.syncJob.send({ value: 5 });
     expect(jobId).toBeTruthy();
 
     // Start worker
@@ -294,12 +292,12 @@ describe("Basic Queue Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send first job to initialize pg-boss
-    await bossman.client().queues.syncBatchJob.send({ id: 1 });
+    await bossman.client.queues.syncBatchJob.send({ id: 1 });
 
     // Send remaining jobs
     await Promise.all([
-      bossman.client().queues.syncBatchJob.send({ id: 2 }),
-      bossman.client().queues.syncBatchJob.send({ id: 3 }),
+      bossman.client.queues.syncBatchJob.send({ id: 2 }),
+      bossman.client.queues.syncBatchJob.send({ id: 3 }),
     ]);
 
     // Start worker
@@ -364,13 +362,13 @@ describe("Basic Queue Flow", () => {
     bossmanInstances.push(bossman);
 
     // Send nested jobs
-    await bossman.client().queues["emails.sendWelcome"].send({
+    await bossman.client.queues["emails.sendWelcome"].send({
       to: "user1@example.com",
     });
-    await bossman.client().queues["emails.sendPasswordReset"].send({
+    await bossman.client.queues["emails.sendPasswordReset"].send({
       to: "user2@example.com",
     });
-    await bossman.client().queues["data-export"].send();
+    await bossman.client.queues["data-export"].send();
 
     // Start worker
     const originalOn = process.on;
@@ -446,7 +444,7 @@ describe("Basic Queue Flow", () => {
     await bossman.start();
     process.on = originalOn;
 
-    await bossman.client().events.userCreated.emit({
+    await bossman.client.events.userCreated.emit({
       email: "user@example.com",
       id: "u1",
     });

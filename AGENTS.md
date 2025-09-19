@@ -28,8 +28,8 @@ The worker processes jobs and can also send jobs:
 ```typescript
 const bossman = createBossman({ connectionString })
   .register({
-    'myJob': createJob().handler(...),
-    'emails.sendWelcome': createJob().handler(...),
+    myJob: createJob().handler(...),
+    sendWelcomeEmail: createJob().handler(...),
   })
   .build();
 
@@ -84,7 +84,7 @@ src/
 
 1. **Parameterless Jobs**: Jobs without parameters infer input as `unknown`. `send()` and `schedule()` accept optional data; if omitted, `{}` is sent.
 
-2. **Flat Jobs Map**: A single-level object `JobsMap = Record<string, JobWithoutName>` keyed by queue names (e.g., `"emails.sendWelcome"`). Worker builds a concrete client map. Client uses a minimal proxy.
+2. **Flat Jobs Map**: A single-level object `JobsMap = Record<string, JobWithoutName>` keyed by queue names (e.g., `sendWelcomeEmail`). Worker builds a concrete client map. Client uses a minimal proxy.
 
 3. **ClientStructure**: Simple mapped type from `JobsMap` keys to `JobClient` with inferred input.
 
@@ -134,6 +134,8 @@ Tests use:
 11. **Typecheck Script**: Added `"typecheck": "tsc -p tsconfig.json --noEmit"` to `package.json` for CI and local checks.
 12. **Biome/Ultracite Compliance**: Fixed lint issues across dashboard and examples (magic numbers → constants, removed unused imports/vars, added missing block statements, complexity ignores for UI rendering helpers). `npx ultracite fix` runs clean.
 13. **Examples Polishing**: Updated example server to avoid magic numbers and string concatenation; removed undefined `setupSchedules` call from example worker.
+14. **Jobs List Pagination Refresh**: The jobs list auto-refresh keeps pagination aligned by sending an OOB `outerHTML` swap for `#jobs-poller` that rewrites its `hx-get` with the active offset and (when enabled) sets `hx-trigger="every 5s"`. The server derives the offset and refresh toggle from `HX-Current-URL`, so polling hits the same page the user is viewing without resetting to the first batch, the initial markup leaves the poller idle to avoid duplicate requests on page load, and the refresh toggle reuses the current URL so existing query params (e.g. `page=8`) are preserved when flipping the state.
+15. **Client Accessor Change**: `bossman.client` is now a property (not a function). Update usages from `bossman.client().queues...` to `bossman.client.queues...`. Dashboard `createDashboard` accepts `client: bossman.client`.
 
 ## Dashboard
 
@@ -171,14 +173,12 @@ const batchJob = createJob()
   });
 ```
 
-### Nested Job Structure
+### Job Names
 ```typescript
 const jobs = {
-  emails: {
-    welcome: createJob().handler(...),
-    passwordReset: createJob().handler(...)
-  },
-  "data-export": createJob().handler(...) // Dashes supported
+  sendWelcomeEmail: createJob().handler(...),
+  sendPasswordResetEmail: createJob().handler(...),
+  dataExport: createJob().handler(...), // Prefer camelCase; dots/namespaces supported but discouraged
 };
 ```
 
@@ -224,4 +224,4 @@ const tick = createQueue<void>()
 - **biome**: Linting and formatting
 
 ---
-*Last updated: Added `input<T>()` to builder for schedule-first typing, exported createDashboard, aligned QueueOptions, removed client scheduling, added typecheck script, and made ultracite fix pass.*
+*Last updated: Preserve jobs list pagination on auto-refresh via OOB container swap and `HX-Current-URL` refresh detection.*

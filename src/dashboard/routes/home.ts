@@ -5,6 +5,7 @@ import { Breadcrumbs } from "./components/breadcrumbs";
 import { Layout } from "./components/layout";
 import { RefreshControl } from "./components/refresh-control";
 import { api } from "./utils/api";
+import { buildRefreshToggleHref } from "./utils/query";
 
 export const home = new Hono<Env>().get((c) => {
   const basePath = c.get("basePath") ?? "";
@@ -12,6 +13,7 @@ export const home = new Hono<Env>().get((c) => {
   const queuesPath = routes.queuesCard();
   const eventsPath = routes.eventsCard();
   const refreshOn = (c.req.query("refresh") ?? "on") !== "off";
+  const toggleHref = buildRefreshToggleHref(c.req.url, refreshOn);
   return c.html(
     Layout({
       basePath,
@@ -22,7 +24,7 @@ export const home = new Hono<Env>().get((c) => {
           rightContent: RefreshControl({
             indicatorId: "home-page-indicator",
             refreshOn,
-            toggleHref: `${basePath}${refreshOn ? "?refresh=off" : "?refresh=on"}`,
+            toggleHref,
           }),
         })}
         <div class="grid gap-6">

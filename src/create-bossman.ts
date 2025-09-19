@@ -39,7 +39,19 @@ class BossmanWorker<
 
   // Internal client structure for job access
   private readonly clientMap: ClientStructure<TQueues>;
-  // events are exposed via client() namespace
+  // Exposed typed client (queues + events + getPgBoss)
+  readonly client: {
+    queues: ClientStructure<TQueues>;
+    events: {
+      [E in EventKeys<TEvents>]: {
+        emit: (
+          payload: EventPayloads<TEvents>[E],
+          options?: PgBoss.SendOptions
+        ) => Promise<string | string[] | null>;
+      };
+    };
+    getPgBoss: () => Promise<PgBoss>;
+  };
 
   constructor(
     pgBoss: PgBoss,
@@ -65,21 +77,7 @@ class BossmanWorker<
       client[name] = new QueueClient(ensureStarted, name);
     }
     this.clientMap = client as ClientStructure<TQueues>;
-  }
 
-  client(): {
-    queues: ClientStructure<TQueues>;
-    events: {
-      [E in EventKeys<TEvents>]: {
-        emit: (
-          payload: EventPayloads<TEvents>[E],
-          options?: PgBoss.SendOptions
-        ) => Promise<string | string[] | null>;
-      };
-    };
-    getPgBoss: () => Promise<PgBoss>;
-  } {
-    const queues = this.clientMap as ClientStructure<TQueues>;
     const events = new Proxy(
       {},
       {
@@ -112,7 +110,12 @@ class BossmanWorker<
       await this.init();
       return this.pgBoss;
     };
-    return { events, getPgBoss, queues };
+
+    this.client = {
+      events,
+      getPgBoss,
+      queues: this.clientMap as ClientStructure<TQueues>,
+    };
   }
 
   /**
@@ -562,5 +565,5 @@ export type PgBossmanInstance<
   getPgBoss: () => Promise<PgBoss>;
 
   // Bossman client accessor (queues + events emitters)
-  client: () => PgBossmanClientInstance<TQueues, TEvents>;
+  client: PgBossmanClientInstance<TQueues, TEvents>;
 };

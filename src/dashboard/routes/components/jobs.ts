@@ -62,6 +62,7 @@ export function JobsList({
   offset,
   total,
   basePath,
+  refreshOn,
 }: {
   jobs: JobRow[];
   name: string;
@@ -69,6 +70,7 @@ export function JobsList({
   offset: number;
   total: number;
   basePath: string;
+  refreshOn: boolean;
 }) {
   const start = total === 0 ? 0 : offset + 1;
   const end = Math.min(offset + limit, total);
@@ -84,7 +86,19 @@ export function JobsList({
   const prevPageUrl = `${basePath}/queues/${encodeURIComponent(name)}/jobs?page=${prevPage}`;
   const nextPageUrl = `${basePath}/queues/${encodeURIComponent(name)}/jobs?page=${nextPage}`;
   const caption = `Showing ${start}–${end} of ${total}`;
+  const pollerPath = listPath(offset);
   return html`
+    <div
+      hx-swap-oob="outerHTML:#jobs-poller"
+      id="jobs-poller"
+      hx-get="${pollerPath}"
+      ${refreshOn ? html`hx-trigger="every 5s"` : html``}
+      hx-target="#jobs-list"
+      hx-indicator="#jobs-page-indicator"
+      hx-swap="innerHTML"
+      style="display:none"
+    ></div>
+    <!-- OOB updates for counters & pagination (outside the list container) -->
     <div hx-swap-oob="innerHTML:#jobs-count-top">${caption}</div>
     <div hx-swap-oob="innerHTML:#jobs-count-bottom">${caption}</div>
     <div hx-swap-oob="innerHTML:#jobs-pagination-top" class="join">
@@ -95,6 +109,7 @@ export function JobsList({
       <button class="btn btn-sm join-item" ${prevDisabled ? "disabled" : ""} hx-get="${listPath(prevOffset)}" hx-target="#jobs-list" hx-push-url="${prevPageUrl}">Prev</button>
       <button class="btn btn-sm join-item" ${nextDisabled ? "disabled" : ""} hx-get="${listPath(nextOffset)}" hx-target="#jobs-list" hx-push-url="${nextPageUrl}">Next</button>
     </div>
+
     ${JobsTable({ basePath, jobs })}
   `;
 }

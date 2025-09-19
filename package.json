@@ -6,6 +6,7 @@
   "description": "a pg-boss wrapper that comes with a type safe API, reasonable defaults, and a dashboard",
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
+    "@changesets/cli": "^2.29.7",
     "@electric-sql/pglite": "^0.3.8",
     "@types/node": "^24.3.3",
     "@types/prismjs": "^1.26.5",
@@ -20,6 +21,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "frunk": "^0.0.4",
     "hono": "^4.4.3",
     "prismjs": "^1.30.0",
     "remix-hono": "^0.0.18",
@@ -59,13 +61,26 @@
     "type": "git",
     "url": "git+https://github.com/ludicroushq/pg-bossman.git"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "lefthook"
+    ]
+  },
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepare": "npx ultracite fix",
-    "test": "vitest",
-    "test:ui": "vitest --ui"
+    "build": "f -- tsdown",
+    "dev": "f -- tsdown --watch",
+    "test": "f [test:*]",
+    "test:vitest": "f -- vitest run",
+    "test:typecheck": "f -- tsc --noEmit",
+    "test:lint": "f -- ultracite fix",
+    "ci:test": "f [ci:test:*]",
+    "ci:test:typecheck": "f -- tsc --noEmit",
+    "ci:test:lint": "f -- ultracite fix",
+    "ci:test:vitest": "f -- vitest run --coverage",
+    "prepublishOnly": "f [build]",
+    "prepare": "f -- lefthook install",
+    "release": "f [build] -- changeset publish",
+    "version": "f -- changeset version && pnpm install frunk@0.0.4"
   },
   "type": "module",
   "types": "./dist/index.d.ts",

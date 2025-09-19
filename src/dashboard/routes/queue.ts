@@ -5,6 +5,7 @@ import { Breadcrumbs } from "./components/breadcrumbs";
 import { Layout } from "./components/layout";
 import { RefreshControl } from "./components/refresh-control";
 import { api } from "./utils/api";
+import { buildRefreshToggleHref } from "./utils/query";
 
 export const queue = new Hono<Env>().get("/:name", (c) => {
   const basePath = c.get("basePath") ?? "";
@@ -15,6 +16,7 @@ export const queue = new Hono<Env>().get("/:name", (c) => {
     : name;
   const routes = api(basePath);
   const refreshOn = (c.req.query("refresh") ?? "on") !== "off";
+  const toggleHref = buildRefreshToggleHref(c.req.url, refreshOn);
   const PREVIEW_LIMIT = 5;
   const cardPath = routes.queueDetail(name);
   return c.html(
@@ -31,7 +33,7 @@ export const queue = new Hono<Env>().get("/:name", (c) => {
           rightContent: RefreshControl({
             indicatorId: "queue-page-indicator",
             refreshOn,
-            toggleHref: `${basePath}/queues/${encodeURIComponent(name)}${refreshOn ? "?refresh=off" : "?refresh=on"}`,
+            toggleHref,
           }),
         })}
         <div class="grid gap-6">

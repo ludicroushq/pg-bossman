@@ -5,6 +5,7 @@ import { Breadcrumbs } from "./components/breadcrumbs";
 import { Layout } from "./components/layout";
 import { RefreshControl } from "./components/refresh-control";
 import { api } from "./utils/api";
+import { buildRefreshToggleHref } from "./utils/query";
 
 export const queueJobsPage = new Hono<Env>().get("/:name/jobs", (c) => {
   const basePath = c.get("basePath") ?? "";
@@ -26,6 +27,7 @@ export const queueJobsPage = new Hono<Env>().get("/:name/jobs", (c) => {
     offset
   );
   const refreshOn = (c.req.query("refresh") ?? "on") !== "off";
+  const toggleHref = buildRefreshToggleHref(c.req.url, refreshOn);
   const _overviewHref = `${basePath || ""}/queues/${encodeURIComponent(name)}`;
 
   return c.html(
@@ -43,7 +45,7 @@ export const queueJobsPage = new Hono<Env>().get("/:name/jobs", (c) => {
           rightContent: RefreshControl({
             indicatorId: "jobs-page-indicator",
             refreshOn,
-            toggleHref: `${basePath}/queues/${encodeURIComponent(name)}/jobs${refreshOn ? "?refresh=off" : "?refresh=on"}`,
+            toggleHref,
           }),
         })}
         <div class="flex items-center justify-between mb-2">
@@ -55,9 +57,19 @@ export const queueJobsPage = new Hono<Env>().get("/:name/jobs", (c) => {
         </div>
         <section class="card bg-base-100 shadow">
           <div class="p-2">
-            <div id="jobs-list" hx-get="${listPath}" hx-trigger="${refreshOn ? "load, every 5s" : "load"}" hx-indicator="#jobs-page-indicator">
+            <!-- Initial load of the current page -->
+            <div id="jobs-list" hx-get="${listPath}" hx-trigger="load" hx-indicator="#jobs-page-indicator">
               <div class="skeleton h-24 w-full"></div>
             </div>
+            <!-- Separate poller keeps the page in sync with the URL (reads page from HX-Current-URL) -->
+            <div
+              id="jobs-poller"
+              hx-get="${basePath}/api/queues/${encodeURIComponent(name)}/jobs/list?limit=${DEFAULT_LIST_LIMIT}&offset=${offset}"
+              hx-target="#jobs-list"
+              hx-indicator="#jobs-page-indicator"
+              hx-swap="innerHTML"
+              style="display:none"
+            ></div>
           </div>
         </section>
         <div class="flex items-center justify-between text-sm mt-2">

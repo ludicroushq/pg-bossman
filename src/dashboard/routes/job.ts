@@ -5,6 +5,7 @@ import { Breadcrumbs } from "./components/breadcrumbs";
 import { Layout } from "./components/layout";
 import { RefreshControl } from "./components/refresh-control";
 import { api } from "./utils/api";
+import { buildRefreshToggleHref } from "./utils/query";
 
 export const jobPage = new Hono<Env>().get("/:name/jobs/:id", (c) => {
   const basePath = c.get("basePath") ?? "";
@@ -16,6 +17,7 @@ export const jobPage = new Hono<Env>().get("/:name/jobs/:id", (c) => {
     : queueName;
   const detailPath = api(basePath).jobDetail(queueName, id);
   const refreshOn = (c.req.query("refresh") ?? "on") !== "off";
+  const toggleHref = buildRefreshToggleHref(c.req.url, refreshOn);
   const _queueHref = `${basePath || ""}/queues/${encodeURIComponent(queueName)}`;
 
   return c.html(
@@ -40,7 +42,7 @@ export const jobPage = new Hono<Env>().get("/:name/jobs/:id", (c) => {
           rightContent: RefreshControl({
             indicatorId: "job-page-indicator",
             refreshOn,
-            toggleHref: `${basePath}/queues/${encodeURIComponent(queueName)}/jobs/${encodeURIComponent(id)}${refreshOn ? "?refresh=off" : "?refresh=on"}`,
+            toggleHref,
           }),
         })}
         <div class="grid gap-6">

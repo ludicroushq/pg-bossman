@@ -1,188 +1,108 @@
+<div align="center">
+
 # pg-bossman
 
-Type-safe wrapper for pg-boss with a flat queues map, typed events, queue-level scheduling, and a minimal client API that works in both the worker and send-only clients.
+[![npm version](https://img.shields.io/npm/v/pg-bossman.svg)](https://www.npmjs.com/package/pg-bossman)
+[![npm downloads](https://img.shields.io/npm/dm/pg-bossman.svg)](https://www.npmjs.com/package/pg-bossman)
+[![CI](https://github.com/ludicroushq/pg-bossman/actions/workflows/main.yaml/badge.svg?branch=main)](https://github.com/ludicroushq/pg-bossman/actions/workflows/main.yaml)
+[![Types](https://img.shields.io/badge/types-TypeScript-blue.svg)](./dist/index.d.ts)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/ludicroushq/pg-bossman/blob/main/package.json)
 
-## Features
+Type-safe, lightweight wrapper around pg-boss with a flat jobs map, queue-level scheduling, and a tiny send-only client — plus a zero-build SSR dashboard.
 
-- 🔷 Type-safe queue names and payloads (flat map of queues)
-- 🏗️ Fluent builder for queues; schedules defined on the queue
-- 📨 Typed events with builder-time subscriptions and optional mapping
-- 🧩 Worker: `bossman.client()` returns queues and events emitters
-- 🪶 Client: `createClient<typeof bossman>()` returns typed queues and events without bundling handlers
+<br/>
+<img alt="pg-bossman dashboard" src="https://raw.githubusercontent.com/ludicroushq/pg-bossman/main/public/images/homepage.png" width="900" />
 
-## Installation
+</div>
+
+## Install
 
 ```bash
-npm install pg-bossman pg-boss
+pnpm add pg-bossman pg-boss
+# or: npm i pg-bossman pg-boss
 ```
 
 ## Quick Start
 
-### 1) Define queues (flat map) and schedules
+Define queues (flat map), optionally add a schedule, build and start the worker. The client API is type-safe and identical in both the worker and a send-only client.
 
 ```ts
-import { createQueue } from 'pg-bossman';
+import { createBossman, createClient, createQueue } from 'pg-bossman'
 
-export const jobs = {
-  // Single queue
-  sendWelcomeEmail: createQueue().handler((input: { to: string }) => {
-    // ... send email
-  }),
-
-  // Scheduled queue (one per queue in pg-boss v10)
-  dailyReport: createQueue()
-    .schedule('0 3 * * *', { when: 'utc' }, { tz: 'America/Chicago' })
-    .handler((input: { when: string }) => {
-      // ... run report
+const queues = {
+  // single job
+  sendWelcomeEmail: createQueue()
+    .handler((input: { to: string }) => {
+      /* ...send email... */
     }),
 
-  // Batch queue
-  'images.resize': createQueue()
+  // scheduled job (one schedule per queue)
+  tick: createQueue<void>()
+    .schedule('* * * * *')
+    .handler(() => {
+      /* ...do work... */
+    }),
+
+  // batch job
+  resizeImages: createQueue()
     .options({ batchSize: 10 })
-    .batchHandler((inputs: Array<{ url: string }>) => {
-      return inputs.map((i) => ({ resized: i.url }));
-    }),
-};
+    .batchHandler((items: Array<{ url: string }>) => items.map(i => ({ ok: i.url }))),
+}
+
+// Build + start the worker
+const bossman = createBossman({ connectionString: process.env.DATABASE_URL! })
+  .register(queues)
+  .build()
+
+await bossman.start()
+
+// Send a job (from the worker)
+await bossman.client.queues.sendWelcomeEmail.send({ to: 'user@example.com' })
+
+// Send-only client (no handlers bundled)
+type Bossman = typeof bossman
+const client = createClient<Bossman>({ connectionString: process.env.DATABASE_URL! })
+await client.queues.sendWelcomeEmail.send({ to: 'user@example.com' })
 ```
 
-### 2) Define events and subscriptions
+Optional: typed events with subscriptions
 
 ```ts
-import { defineEvents, createBossman } from 'pg-bossman';
+import { defineEvents } from 'pg-bossman'
 
-const events = defineEvents<{
-  userCreated: { id: string; email: string };
-  reportTick: { when: string };
-}>();
+const events = defineEvents<{ userCreated: { email: string } }>()
 
-export const bossman = createBossman({ connectionString: process.env.DATABASE_URL! })
-  .register(jobs)
+const bossman = createBossman({ connectionString: process.env.DATABASE_URL! })
+  .register(queues)
   .events(events)
   .subscriptions({
-    // Requires a transform since payload ≠ queue input
-    userCreated: {
-      sendWelcomeEmail: { map: (e) => ({ to: e.email }) },
-    },
-    // Direct subscription allowed since payload is assignable to queue input
-    reportTick: {
-      dailyReport: true,
-    },
+    userCreated: { sendWelcomeEmail: { map: (e) => ({ to: e.email }) } },
   })
-  .build();
+  .build()
+
+await bossman.client.events.userCreated.emit({ email: 'user@example.com' })
 ```
 
-### 3) Start the worker
+## Dashboard (SSR)
+
+Mount the built-in Hono SSR dashboard anywhere (no bundler, no React). It reads via the client only.
 
 ```ts
-await bossman.start();
+import { createDashboard } from 'pg-bossman'
+
+export const GET = createDashboard({
+  client: bossman.client,
+  basePath: '/dashboard',
+})
+export const POST = GET // for runtimes that need both
 ```
 
-### 4) Send jobs and emit events (worker-side)
+## Notes
 
-```ts
-// Queues
-await bossman.client().queues.sendWelcomeEmail.send({ to: 'user@example.com' });
-
-// Events
-await bossman.client().events.userCreated.emit({ id: 'u1', email: 'user@example.com' });
-```
-
-### 5) Send-only client (no handlers bundled)
-
-```ts
-import { createClient } from 'pg-bossman';
-import type { bossman } from './bossman';
-
-const client = createClient<typeof bossman>({ connectionString: process.env.DATABASE_URL! });
-
-// Queues
-await client.queues.sendWelcomeEmail.send({ to: 'user@example.com' });
-
-// Events
-await client.events.userCreated.emit({ id: 'u1', email: 'user@example.com' });
-```
-
-## API Overview
-
-### Queues
-
-```ts
-createQueue()
-  .options({ /* optional pg-boss send options */ })
-  .schedule(cron: string, data?: TInput, options?: { tz?: string })
-  .handler((input: TInput) => TOutput | Promise<TOutput>)
-
-createQueue()
-  .options({ batchSize: number })
-  .batchHandler((inputs: TInput[]) => TOutput[] | Promise<TOutput[]>)
-```
-
-Notes:
-- Input type is inferred from the handler parameter. No manual type args needed.
-- Schedules are reconciled on start: upsert declared schedules and remove undeclared ones.
-
-### Events and Subscriptions
-
-```ts
-const events = defineEvents<{
-  userCreated: { id: string; email: string };
-  reportTick: { when: string };
-}>();
-
-createBossman(...)
-  .register(jobs)
-  .events(events)
-  .subscriptions({
-    userCreated: {
-      // Allowed when EventPayload extends JobInput for the queue
-      sendWelcomeEmail: { map: (e) => ({ to: e.email }) },
-    },
-    reportTick: {
-      dailyReport: true,
-    },
-  })
-  .build();
-
-// Emitting (worker or client)
-await bossman.client().events.userCreated.emit({ id: 'u1', email: 'user@example.com' });
-```
-
-Notes:
-- Bossman creates internal event queues and registers handlers to fan-out events to subscribed queues.
-- true is only allowed when the event payload is assignable to the queue input; otherwise provide a map.
-
-### Worker Client vs. Send-only Client
-
-- Worker: `bossman.client()` returns `{ queues, events }` (concrete map).
-- Send-only: `createClient<typeof bossman>(options)` returns `{ queues, events }` via a minimal proxy.
-
-Both have the same shape:
-
-```ts
-client.queues[queueName].send(data, options?)
-client.queues[queueName].schedule(cron, data?, options?)
-client.queues[queueName].unschedule()
-client.events[eventName].emit(payload, options?)
-```
-
-## Dashboard (SSR via Hono)
-
-Render a minimal, read-only dashboard (queues list) with a single fetch handler.
-
-```ts
-import { createDashboard, createClient } from 'pg-bossman'
-
-const client = createClient<typeof bossman>({ connectionString: process.env.DATABASE_URL! })
-
-// Mount at /dashboard (Next.js App Router example)
-export const GET = createDashboard(client, { basePath: '/dashboard' })
-export const POST = GET // if your runtime needs both
-```
-
-Routes:
-- GET {basePath}/ → HTML page (Tailwind + daisyUI)
-- GET {basePath}/api/queues → JSON list of queues
-
+- Flat jobs map with full TS inference over inputs
+- Schedules are declared on queues and reconciled at startup
+- Send-only client supports `send`; no client runtime scheduling
+- Batch handlers always receive arrays
 
 ## License
 

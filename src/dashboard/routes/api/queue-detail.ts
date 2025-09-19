@@ -35,7 +35,7 @@ export const queueDetail = new Hono<Env>().get(
     // Get job counts by state
     const counts = await getQueueStateCounts(boss, name);
 
-    // schedule info - schedules use the full queue name (e.g., "payments.processPayment")
+    // schedule info - schedules use the full queue name (e.g., "processPayment")
     const schedules = (await boss.getSchedules?.()) as QueueSchedule[] | null;
     const schedule =
       schedules?.find((s) => s.name === name || s.name.endsWith(`.${name}`)) ??

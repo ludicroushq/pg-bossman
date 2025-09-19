@@ -23,11 +23,11 @@ export async function startWorker() {
     await bossman.start();
     console.log("✅ Worker started successfully!");
     console.log("📋 Registered queues:");
-    console.log("  • emails.sendWelcome");
-    console.log("  • emails.sendPasswordReset");
-    console.log("  • media.resizeImage (batch)");
-    console.log("  • maintenance.cleanupOldFiles");
-    console.log("  • payments.processPayment");
+    console.log("  • sendWelcomeEmail");
+    console.log("  • sendPasswordResetEmail");
+    console.log("  • resizeImage (batch)");
+    console.log("  • cleanupOldFiles");
+    console.log("  • processPayment");
     console.log("\n👂 Listening for jobs...\n");
 
     // Handle graceful shutdown

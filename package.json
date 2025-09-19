@@ -3,6 +3,9 @@
   "bugs": {
     "url": "https://github.com/ludicroushq/pg-bossman/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "a pg-boss wrapper that comes with a type safe API, reasonable defaults, and a dashboard",
   "devDependencies": {
     "@biomejs/biome": "2.2.2",

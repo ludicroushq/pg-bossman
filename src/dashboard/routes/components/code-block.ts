@@ -3,11 +3,11 @@ import { html, raw } from "hono/html";
 import Prism from "prismjs";
 
 // Load additional language support
-import "prismjs/components/prism-json";
-import "prismjs/components/prism-log";
-import "prismjs/components/prism-bash";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-json.js";
+import "prismjs/components/prism-log.js";
+import "prismjs/components/prism-bash.js";
+import "prismjs/components/prism-javascript.js";
+import "prismjs/components/prism-typescript.js";
 
 // Load Prism dark theme CSS - Okaidia has a darker background
 const prismThemePath = require.resolve("prismjs/themes/prism-okaidia.min.css");
@@ -61,7 +61,7 @@ export function CodeBlock({
     ${prismStyles}
     <div class="relative group ${className} min-w-0">
       <div class="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button 
+        <button
           class="btn btn-xs btn-ghost bg-gray-700 hover:bg-gray-600 text-gray-300"
           onclick="navigator.clipboard.writeText(this.closest('.group').querySelector('pre').textContent)"
           title="Copy to clipboard"

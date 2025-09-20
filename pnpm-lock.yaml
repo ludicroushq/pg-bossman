@@ -8,18 +8,12 @@ importers:
 
   .:
     dependencies:
-      frunk:
-        specifier: ^0.0.4
-        version: 0.0.4
       hono:
         specifier: ^4.4.3
         version: 4.9.7
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
-      remix-hono:
-        specifier: ^0.0.18
-        version: 0.0.18(hono@4.9.7)(pretty-cache-header@1.0.0)(zod@3.25.76)
       typed-htmx:
         specifier: ^0.3.1
         version: 0.3.1
@@ -48,6 +42,9 @@ importers:
       '@vvo/tzdb':
         specifier: ^6.183.0
         version: 6.183.0
+      frunk:
+        specifier: ^0.0.4
+        version: 0.0.4
       lefthook:
         specifier: ^1.13.0
         version: 1.13.0
@@ -1373,10 +1370,6 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  pretty-cache-header@1.0.0:
-    resolution: {integrity: sha512-xtXazslu25CdnGnUkByU1RoOjK55TqwatJkjjJLg5ZAdz2Lngko/mmaUgeET36P2GMlNwh3fdM7FWBO717pNcw==}
-    engines: {node: '>=12.13'}
-
   prismjs@1.30.0:
     resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
     engines: {node: '>=6'}
@@ -1394,28 +1387,6 @@ packages:
   readdirp@4.1.2:
     resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
     engines: {node: '>= 14.18.0'}
-
-  remix-hono@0.0.18:
-    resolution: {integrity: sha512-pYRFCRjCSDxjIco+qUkGQNIOZwKC/3NaDssLE2gBsLVHuNymUbhwMZeQDu1ERxdrYQuBE19Zn3vS8jL8AXcoxA==}
-    peerDependencies:
-      '@react-router/cloudflare': ^7.0.1
-      hono: ^4.6.12
-      i18next: ^24.0.5
-      pretty-cache-header: ^1.0.0
-      react-router: ^7.0.1
-      remix-i18next: ^7.0.0
-      zod: ^3.0.0
-    peerDependenciesMeta:
-      '@react-router/cloudflare':
-        optional: true
-      i18next:
-        optional: true
-      react-router:
-        optional: true
-      remix-i18next:
-        optional: true
-      zod:
-        optional: true
 
   resolve-from@5.0.0:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
@@ -1556,10 +1527,6 @@ packages:
   test-exclude@7.0.1:
     resolution: {integrity: sha512-pFYqmTw68LXVjeWJMST4+borgQP2AyMNbg1BpZh9LbyhUeNkeaPF9gzfPGUAnSMV3qPYdWUwDIjjCLiSDOl7vg==}
     engines: {node: '>=18'}
-
-  timestring@6.0.0:
-    resolution: {integrity: sha512-wMctrWD2HZZLuIlchlkE2dfXJh7J2KDI9Dwl+2abPYg0mswQHfOAyQW3jJg1pY5VfttSINZuKcXoB3FGypVklA==}
-    engines: {node: '>=8'}
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
@@ -2975,10 +2942,6 @@ snapshots:
 
   prettier@2.8.8: {}
 
-  pretty-cache-header@1.0.0:
-    dependencies:
-      timestring: 6.0.0
-
   prismjs@1.30.0: {}
 
   quansync@0.2.11: {}
@@ -2993,13 +2956,6 @@ snapshots:
       strip-bom: 3.0.0
 
   readdirp@4.1.2: {}
-
-  remix-hono@0.0.18(hono@4.9.7)(pretty-cache-header@1.0.0)(zod@3.25.76):
-    dependencies:
-      hono: 4.9.7
-      pretty-cache-header: 1.0.0
-    optionalDependencies:
-      zod: 3.25.76
 
   resolve-from@5.0.0: {}
 
@@ -3159,8 +3115,6 @@ snapshots:
       '@istanbuljs/schema': 0.1.3
       glob: 10.4.5
       minimatch: 9.0.5
-
-  timestring@6.0.0: {}
 
   tinybench@2.9.0: {}
 

@@ -16,6 +16,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "@vvo/tzdb": "^6.183.0",
+    "frunk": "^0.0.4",
     "lefthook": "^1.13.0",
     "pg-boss": "^10.3.3",
     "tsdown": "^0.15.1",
@@ -25,10 +26,8 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "frunk": "^0.0.4",
     "hono": "^4.4.3",
     "prismjs": "^1.30.0",
-    "remix-hono": "^0.0.18",
     "typed-htmx": "^0.3.1"
   },
   "exports": {

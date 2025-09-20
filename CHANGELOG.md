@@ -1,5 +1,11 @@
 # pg-bossman
 
+## 0.0.3
+
+### Patch Changes
+
+- 5d3817f: remove extra dependencies
+
 ## 0.0.2
 
 ### Patch Changes

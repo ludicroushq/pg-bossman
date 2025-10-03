@@ -35,6 +35,14 @@ export function createPgBoss(
     console.error(`[pg-bossman ${context}] Error:`, error);
   });
 
+  // Handle warning events (pg-boss v11 feature)
+  pgBoss.on(
+    "warning",
+    (warning: { message: string; [key: string]: unknown }) => {
+      console.warn(`[pg-bossman ${context}] Warning:`, warning);
+    }
+  );
+
   return pgBoss;
 }
 

@@ -9,8 +9,8 @@ const DATABASE_URL =
 export const bossman = createBossman({
   connectionString: DATABASE_URL,
   // Optional: Configure pg-boss settings
-  deleteAfterDays: 7,
-  maintenanceIntervalMinutes: 10,
+  // Note: pg-boss v11 uses seconds-based config
+  maintenanceIntervalSeconds: 600, // Run maintenance every 10 minutes
 })
   .register(jobs)
   .build();

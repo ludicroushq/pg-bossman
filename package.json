@@ -7,6 +7,9 @@
     "access": "public"
   },
   "description": "a pg-boss wrapper that comes with a type safe API, reasonable defaults, and a dashboard",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.2.5",
     "@changesets/cli": "^2.29.7",

@@ -20,6 +20,68 @@ export function Layout({
         <script src="https://unpkg.com/htmx.org@1.9.12"></script>
         <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <script src="https://cdn.jsdelivr.net/npm/date-fns@4.1.0/cdn.min.js"></script>
+        <script>
+          // Global date formatting functions
+          window.formatDurations = function(root) {
+            const elements = (root || document).querySelectorAll('[data-duration]');
+            elements.forEach(el => {
+              if (el.textContent && el.textContent.trim()) return; // Already formatted
+              const seconds = parseInt(el.getAttribute('data-duration'));
+              if (!isNaN(seconds) && typeof dateFns !== 'undefined') {
+                const duration = dateFns.intervalToDuration({ start: 0, end: seconds * 1000 });
+                el.textContent = dateFns.formatDuration(duration);
+              } else {
+                el.textContent = seconds + 's';
+              }
+            });
+          };
+
+          window.formatRelativeTimes = function(root) {
+            const elements = (root || document).querySelectorAll('[data-relative-time]');
+            elements.forEach(el => {
+              if (el.textContent && el.textContent.trim()) return; // Already formatted
+              const isoString = el.getAttribute('data-relative-time');
+              if (isoString && typeof dateFns !== 'undefined') {
+                const date = new Date(isoString);
+                el.textContent = dateFns.formatDistanceToNow(date, { addSuffix: true });
+              }
+            });
+          };
+
+          window.formatDurationBetween = function(root) {
+            const elements = (root || document).querySelectorAll('[data-duration-between-start]');
+            elements.forEach(el => {
+              if (el.textContent && el.textContent.trim()) return; // Already formatted
+              const startIso = el.getAttribute('data-duration-between-start');
+              const endIso = el.getAttribute('data-duration-between-end');
+              const showIn = el.getAttribute('data-show-in') !== 'false';
+              if (startIso && endIso && typeof dateFns !== 'undefined') {
+                const start = new Date(startIso);
+                const end = new Date(endIso);
+                const duration = dateFns.intervalToDuration({ start, end });
+                const formatted = dateFns.formatDuration(duration, {
+                  format: ['years', 'months', 'weeks', 'days', 'hours', 'minutes', 'seconds']
+                });
+                el.textContent = (showIn ? 'in ' : '') + (formatted || '0 seconds');
+              }
+            });
+          };
+
+          // Format on page load and set up event listeners
+          document.addEventListener('DOMContentLoaded', function() {
+            formatDurations();
+            formatRelativeTimes();
+            formatDurationBetween();
+
+            // Format after htmx swaps
+            document.body.addEventListener('htmx:afterSwap', function(evt) {
+              formatDurations(evt.detail.target);
+              formatRelativeTimes(evt.detail.target);
+              formatDurationBetween(evt.detail.target);
+            });
+          });
+        </script>
       </head>
       <body class="min-h-screen bg-base-200">
         <nav class="navbar bg-base-100 shadow-sm sticky top-0 z-10">

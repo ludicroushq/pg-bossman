@@ -464,11 +464,9 @@ class BossmanBuilder<
   >,
 > {
   private readonly pgBoss: PgBoss;
-  // biome-ignore lint/style/useReadonlyClassProperties: This is reassigned in the register method
   private router?: TQueues;
   // eventsDef reserved for future; not used at runtime
   // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Reserved for future event type tracking
-  // biome-ignore lint/style/useReadonlyClassProperties: Assigned via builder method
   private eventsDef?: TEvents;
   private subscriptionMap: Map<string, RuntimeSubscription[]> = new Map();
 

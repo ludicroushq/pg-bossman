@@ -46,7 +46,6 @@ export function createLazyStarter(pgBoss: PgBoss) {
   let startPromise: Promise<void> | null = null;
 
   return async () => {
-    // biome-ignore lint/nursery/noUnnecessaryConditions: started is modified in the closure
     if (started) {
       return pgBoss;
     }

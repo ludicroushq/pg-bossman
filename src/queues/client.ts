@@ -29,7 +29,6 @@ export class QueueClient<TInput = unknown, _TOutput = void> {
     if (Array.isArray(payload)) {
       const jobIds = await Promise.all(
         payload.map((item) =>
-          // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
           options
             ? pgBoss.send(this.queueName, item as object, options)
             : pgBoss.send(this.queueName, item as object)
@@ -39,7 +38,6 @@ export class QueueClient<TInput = unknown, _TOutput = void> {
     }
 
     // Single item
-    // biome-ignore lint/nursery/noUnnecessaryConditions: options is optional
     return options
       ? await pgBoss.send(this.queueName, payload as object, options)
       : await pgBoss.send(this.queueName, payload as object);

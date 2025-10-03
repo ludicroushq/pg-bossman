@@ -76,14 +76,59 @@ function ConfigGrid({ meta }: { meta: QueueMeta }) {
   return html`<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
     <div class="card bg-base-200 p-3 space-y-1">
       <div><span class="font-medium">Retry Limit:</span> ${meta.retry_limit ?? "—"}</div>
-      <div><span class="font-medium">Retry Delay (s):</span> ${meta.retry_delay ?? "—"}</div>
-      <div><span class="font-medium">Retry Delay Max (s):</span> ${meta.retry_delay_max ?? "—"}</div>
+      <div>
+        <span class="font-medium">Retry Delay:</span>
+        ${
+          meta.retry_delay != null
+            ? html`<span class="cursor-help" title="${meta.retry_delay}s">
+              <span data-duration="${meta.retry_delay}"></span>
+            </span>`
+            : "—"
+        }
+      </div>
+      <div>
+        <span class="font-medium">Retry Delay Max:</span>
+        ${
+          meta.retry_delay_max != null
+            ? html`<span class="cursor-help" title="${meta.retry_delay_max}s">
+              <span data-duration="${meta.retry_delay_max}"></span>
+            </span>`
+            : "—"
+        }
+      </div>
       <div><span class="font-medium">Retry Backoff:</span> ${meta.retry_backoff ? "Yes" : "No"}</div>
     </div>
     <div class="card bg-base-200 p-3 space-y-1">
-      <div><span class="font-medium">Expire (s):</span> ${meta.expire_seconds ?? "—"}</div>
-      <div><span class="font-medium">Retention (s):</span> ${meta.retention_seconds ?? "—"}</div>
-      <div><span class="font-medium">Delete After (s):</span> ${meta.delete_after_seconds ?? "—"}</div>
+      <div>
+        <span class="font-medium">Expire:</span>
+        ${
+          meta.expire_seconds != null
+            ? html`<span class="cursor-help" title="${meta.expire_seconds}s">
+              <span data-duration="${meta.expire_seconds}"></span>
+            </span>`
+            : "—"
+        }
+      </div>
+      <div>
+        <span class="font-medium">Retention:</span>
+        ${
+          meta.retention_seconds != null
+            ? html`<span class="cursor-help" title="${meta.retention_seconds}s">
+              <span data-duration="${meta.retention_seconds}"></span>
+            </span>`
+            : "—"
+        }
+      </div>
+      <div>
+        <span class="font-medium">Delete After:</span>
+        ${
+          meta.delete_after_seconds != null
+            ? html`<span class="cursor-help" title="${meta.delete_after_seconds}s">
+              <span data-duration="${meta.delete_after_seconds}"></span>
+            </span>`
+            : "—"
+        }
+      </div>
       <div><span class="font-medium">Warning Queue Size:</span> ${meta.warning_queue_size ?? "—"}</div>
       <div><span class="font-medium">Partitioned Table:</span> ${meta.partition ? "Yes" : "No"}</div>
       <div><span class="font-medium">Dead-letter:</span> ${meta.dead_letter ?? "—"}</div>

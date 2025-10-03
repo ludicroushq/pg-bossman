@@ -1,8 +1,9 @@
 import { createQueue } from "pg-bossman";
 
 export const sendPasswordResetJob = createQueue()
+  .input<{ to: string; token: string }>()
   .options({ retryDelay: 60, retryLimit: 2 })
-  .handler(async (input: { to: string; token: string }) => {
+  .handler(async (input) => {
     console.log(`🔑 Sending password reset to ${input.to}`);
     // In production: await emailService.sendPasswordReset(input);
 

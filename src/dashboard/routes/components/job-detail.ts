@@ -94,6 +94,16 @@ export function JobDetailCard({
                   <span>${job.retry_delay}s</span>
                 </div>
                 ${
+                  job.retry_delay_max != null
+                    ? html`
+                <div class="flex justify-between">
+                  <span class="opacity-60">Retry Delay Max:</span>
+                  <span>${job.retry_delay_max}s</span>
+                </div>
+                `
+                    : ""
+                }
+                ${
                   job.retry_backoff
                     ? html`
                 <div class="flex justify-between">
@@ -135,9 +145,11 @@ export function JobDetailCard({
         <!-- Additional metadata if present -->
         ${
           job.singleton_key ||
-          job.expire_in ||
+          job.expire_seconds != null ||
+          job.delete_after_seconds != null ||
           job.keep_until ||
-          job.dead_letter
+          job.dead_letter ||
+          job.policy
             ? html`
         <div class="card bg-base-200">
           <div class="card-body p-4 gap-2">
@@ -154,11 +166,21 @@ export function JobDetailCard({
                   : ""
               }
               ${
-                job.expire_in
+                job.expire_seconds != null
                   ? html`
               <div class="flex justify-between">
-                <span class="opacity-60">Expire In:</span>
-                <span>${job.expire_in}</span>
+                <span class="opacity-60">Expire Seconds:</span>
+                <span>${job.expire_seconds}</span>
+              </div>
+              `
+                  : ""
+              }
+              ${
+                job.delete_after_seconds != null
+                  ? html`
+              <div class="flex justify-between">
+                <span class="opacity-60">Delete After (s):</span>
+                <span>${job.delete_after_seconds}</span>
               </div>
               `
                   : ""
@@ -183,16 +205,10 @@ export function JobDetailCard({
               `
                   : ""
               }
-              ${
-                job.policy
-                  ? html`
               <div class="flex justify-between">
                 <span class="opacity-60">Policy:</span>
-                <span>${job.policy}</span>
+                <span>${job.policy ?? "standard"}</span>
               </div>
-              `
-                  : ""
-              }
             </div>
           </div>
         </div>

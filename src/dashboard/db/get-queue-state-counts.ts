@@ -13,7 +13,7 @@ export type QueueStateCounts = {
 
 /**
  * Get job counts by state for a specific queue
- * Queries both the active job table and archive table
+ * Queries the job table (completed jobs remain in-place in pg-boss v11)
  */
 export async function getQueueStateCounts(
   boss: PgBoss,
@@ -21,17 +21,10 @@ export async function getQueueStateCounts(
 ): Promise<QueueStateCounts> {
   const db = getDb(boss);
 
-  // Query to get counts by state from both tables
   const sql = `
-    WITH combined AS (
-      SELECT state FROM ${PGBOSS_SCHEMA}.job WHERE name = $1
-      UNION ALL
-      SELECT state FROM ${PGBOSS_SCHEMA}.archive WHERE name = $1
-    )
-    SELECT 
-      state,
-      COUNT(*) as count
-    FROM combined
+    SELECT state, COUNT(*) as count
+    FROM ${PGBOSS_SCHEMA}.job
+    WHERE name = $1
     GROUP BY state
   `;
 

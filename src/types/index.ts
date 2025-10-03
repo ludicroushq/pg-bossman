@@ -11,7 +11,7 @@ export type BatchQueueHandler<TInput, TOutput = void> = (
 // Queue options that pass through to pg-boss
 // Queue-level options that map to pg-boss Queue settings
 // Note: These are distinct from per-job SendOptions
-export interface QueueOptions extends Partial<PgBoss.Queue> {
+export interface QueueOptions extends Partial<Omit<PgBoss.Queue, "name">> {
   // Additional options can be added here
   batchSize?: number; // For batch handlers
 }
@@ -21,14 +21,14 @@ export type SingleQueueDefinition<TInput = unknown, TOutput = void> = {
   name: string;
   handler: QueueHandler<TInput, TOutput>;
   options?: QueueOptions;
-  schedule?: QueueSchedule<TInput>;
+  schedules?: QueueSchedule<TInput>[];
 };
 
 export type BatchQueueDefinition<TInput = unknown, TOutput = void> = {
   name: string;
   batchHandler: BatchQueueHandler<TInput, TOutput>;
   options?: QueueOptions;
-  schedule?: QueueSchedule<TInput>;
+  schedules?: QueueSchedule<TInput>[];
 };
 
 export type QueueDefinition<TInput = unknown, TOutput = void> =
@@ -37,6 +37,7 @@ export type QueueDefinition<TInput = unknown, TOutput = void> =
 
 // Optional attached schedule config on a queue
 export type QueueSchedule<TInput = unknown> = {
+  key: string;
   cron: string;
   data?: TInput;
   options?: PgBoss.ScheduleOptions;

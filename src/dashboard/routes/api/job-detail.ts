@@ -8,37 +8,14 @@ import { JobDetailCard } from "../components/job-detail";
 type PgBossJob = PgBoss.JobWithMetadata<unknown>;
 
 // Convert pg-boss job to our JobRow format (snake_case for consistency with DB)
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Conversion with several branches
 function convertToJobRow(pgBossJob: PgBossJob) {
-  // Handle expireIn - it might be an interval object or string
-  let expireIn: unknown = pgBossJob.expireIn;
-  if (expireIn && typeof expireIn === "object") {
-    // If it's an interval object, try to get a string representation
-    // PostgreSQL interval objects might have properties like seconds, minutes, etc.
-    if ("seconds" in expireIn || "minutes" in expireIn || "hours" in expireIn) {
-      const parts: string[] = [];
-      if ("hours" in expireIn && expireIn.hours) {
-        parts.push(`${expireIn.hours}h`);
-      }
-      if ("minutes" in expireIn && expireIn.minutes) {
-        parts.push(`${expireIn.minutes}m`);
-      }
-      if ("seconds" in expireIn && expireIn.seconds) {
-        parts.push(`${expireIn.seconds}s`);
-      }
-      expireIn = parts.join(" ") || null;
-    } else {
-      // Fallback to JSON string if we don't recognize the format
-      expireIn = JSON.stringify(expireIn);
-    }
-  }
-
   return {
     completed_on: pgBossJob.completedOn,
     created_on: pgBossJob.createdOn,
     data: pgBossJob.data,
     dead_letter: pgBossJob.deadLetter,
-    expire_in: expireIn,
+    delete_after_seconds: pgBossJob.deleteAfterSeconds,
+    expire_seconds: pgBossJob.expireInSeconds,
     id: pgBossJob.id,
     keep_until: pgBossJob.keepUntil,
     name: pgBossJob.name,
@@ -48,6 +25,7 @@ function convertToJobRow(pgBossJob: PgBossJob) {
     retry_backoff: pgBossJob.retryBackoff,
     retry_count: pgBossJob.retryCount,
     retry_delay: pgBossJob.retryDelay,
+    retry_delay_max: pgBossJob.retryDelayMax ?? null,
     retry_limit: pgBossJob.retryLimit,
     singleton_key: pgBossJob.singletonKey,
     singleton_on: pgBossJob.singletonOn,
@@ -62,10 +40,7 @@ export const jobDetail = new Hono<Env>().get("/:name/jobs/:id", async (c) => {
   const queueName = c.req.param("name");
   const id = c.req.param("id");
 
-  // Use pg-boss's native getJobById with includeArchive option
-  const pgBossJob = (await boss.getJobById(queueName, id, {
-    includeArchive: true,
-  })) as PgBossJob | null;
+  const pgBossJob = (await boss.getJobById(queueName, id)) as PgBossJob | null;
   const basePath = c.get("basePath") ?? "";
 
   if (!pgBossJob) {

@@ -1,8 +1,9 @@
 import { createQueue } from "pg-bossman";
 
 export const sendWelcomeEmailJob = createQueue()
+  .input<{ to: string; name: string }>()
   .options({ retryLimit: 3 })
-  .handler(async (input: { to: string; name: string }) => {
+  .handler(async (input) => {
     console.log(`📧 Sending welcome email to ${input.to}`);
     // In production: await emailService.sendWelcome(input);
 

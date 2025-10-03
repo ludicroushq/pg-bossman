@@ -1,21 +1,17 @@
 import PgBoss from "pg-boss";
 
 /**
- * Default options for pg-boss instances
- * These can be overridden by passing custom options
+ * Default options for pg-boss instances.
+ * These align with pg-boss v11 maintenance defaults while ensuring
+ * supervision and scheduling are enabled out of the box.
  */
 const DEFAULT_OPTIONS: Partial<PgBoss.ConstructorOptions> = {
-  // Default retention policy
-  deleteAfterDays: 7,
-
-  // Default expiration (pg-boss max is 24 hours)
-  expireInMinutes: 15,
-  maintenanceIntervalMinutes: 10,
-  retryBackoff: true,
-  retryDelay: 60,
-
-  // Default retry configuration
-  retryLimit: 2,
+  maintenanceIntervalSeconds: 60 * 60 * 24,
+  schedule: true,
+  supervise: true,
+  superviseIntervalSeconds: 60,
+  warningQueueSize: 10_000,
+  warningSlowQuerySeconds: 30,
 };
 
 /**

@@ -1,4 +1,3 @@
-import type PgBoss from "pg-boss";
 import type {
   BatchQueueDefinition,
   BatchQueueHandler,
@@ -14,11 +13,7 @@ import type {
  */
 export class QueueBuilder<TInput = unknown, TOutput = void> {
   private queueOptions?: QueueOptions;
-  private queueSchedule?: {
-    cron: string;
-    data?: TInput;
-    options?: PgBoss.ScheduleOptions;
-  };
+  private queueSchedules: QueueSchedule<TInput>[] = [];
 
   /**
    * Set job options (retry, priority, etc)
@@ -40,51 +35,27 @@ export class QueueBuilder<TInput = unknown, TOutput = void> {
   }
 
   /**
-   * Define a schedule for this job (one per queue)
+   * Define a schedule for this job. Multiple schedules are supported via keys.
    */
-  // Single signature with conditional tuple type: requires data when TInput is not undefined
-  schedule(
-    ...args: [
-      cron: string,
-      ...(TInput extends undefined
-        ? [options?: PgBoss.ScheduleOptions]
-        : [data: TInput, options?: PgBoss.ScheduleOptions]),
-    ]
-  ): QueueBuilder<TInput, TOutput> {
-    const cron = args[0] as string;
-    const a2 = args[1] as unknown;
-    const a3 = args[2] as PgBoss.ScheduleOptions | undefined;
-
-    let data: TInput | undefined;
-    let options: PgBoss.ScheduleOptions | undefined;
-
-    const ARGS_WITH_DATA_AND_OPTIONS = 3 as const;
-    if (args.length === ARGS_WITH_DATA_AND_OPTIONS) {
-      data = a2 as TInput;
-      options = a3;
-    } else if (args.length === 2) {
-      const maybeOptions = a2 as Record<string, unknown>;
-      if (
-        maybeOptions &&
-        typeof maybeOptions === "object" &&
-        ("tz" in maybeOptions ||
-          "priority" in maybeOptions ||
-          "retryLimit" in maybeOptions ||
-          "retryDelay" in maybeOptions ||
-          "retryBackoff" in maybeOptions)
-      ) {
-        options = maybeOptions as PgBoss.ScheduleOptions;
-      } else {
-        data = a2 as TInput;
-      }
+  schedule(config: QueueSchedule<TInput>): QueueBuilder<TInput, TOutput> {
+    const { cron, data, key, options } = config;
+    if (!key || key.length === 0) {
+      throw new TypeError("schedule requires a non-empty key");
     }
+    this.upsertSchedule({
+      cron,
+      data,
+      key,
+      options,
+    });
+    return this;
+  }
 
-    this.queueSchedule = { cron, data, options } as {
-      cron: string;
-      data?: TInput;
-      options?: PgBoss.ScheduleOptions;
-    };
-    return this as unknown as QueueBuilder<TInput, TOutput>;
+  private upsertSchedule(schedule: QueueSchedule<TInput>) {
+    this.queueSchedules = this.queueSchedules.filter(
+      (existing) => existing.key !== schedule.key
+    );
+    this.queueSchedules.push(schedule);
   }
 
   /**
@@ -98,8 +69,8 @@ export class QueueBuilder<TInput = unknown, TOutput = void> {
       handler,
       options: this.queueOptions,
     };
-    if (this.queueSchedule) {
-      def.schedule = this.queueSchedule as QueueSchedule<I>;
+    if (this.queueSchedules.length > 0) {
+      def.schedules = this.queueSchedules as QueueSchedule<I>[];
     }
     return def;
   }
@@ -115,8 +86,8 @@ export class QueueBuilder<TInput = unknown, TOutput = void> {
       batchHandler,
       options: this.queueOptions,
     };
-    if (this.queueSchedule) {
-      def.schedule = this.queueSchedule as QueueSchedule<I>;
+    if (this.queueSchedules.length > 0) {
+      def.schedules = this.queueSchedules as QueueSchedule<I>[];
     }
     return def;
   }

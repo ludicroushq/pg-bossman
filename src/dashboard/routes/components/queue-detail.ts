@@ -5,10 +5,14 @@ export type QueueMeta = {
   policy?: string | null;
   retry_limit?: number | null;
   retry_delay?: number | null;
+  retry_delay_max?: number | null;
   retry_backoff?: boolean | null;
   expire_seconds?: number | null;
-  retention_minutes?: number | null;
+  retention_seconds?: number | null;
+  delete_after_seconds?: number | null;
   dead_letter?: string | null;
+  warning_queue_size?: number | null;
+  partition?: boolean | null;
   created_on?: Date | null;
   updated_on?: Date | null;
 };
@@ -16,6 +20,7 @@ export type QueueMeta = {
 export type QueueSchedule = {
   name: string;
   cron: string;
+  key?: string | null;
   timezone?: string | null;
   options?: unknown;
   data?: unknown;
@@ -69,14 +74,18 @@ function StatsGrid({
 
 function ConfigGrid({ meta }: { meta: QueueMeta }) {
   return html`<div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-    <div class="card bg-base-200 p-3">
+    <div class="card bg-base-200 p-3 space-y-1">
       <div><span class="font-medium">Retry Limit:</span> ${meta.retry_limit ?? "—"}</div>
       <div><span class="font-medium">Retry Delay (s):</span> ${meta.retry_delay ?? "—"}</div>
+      <div><span class="font-medium">Retry Delay Max (s):</span> ${meta.retry_delay_max ?? "—"}</div>
       <div><span class="font-medium">Retry Backoff:</span> ${meta.retry_backoff ? "Yes" : "No"}</div>
     </div>
-    <div class="card bg-base-200 p-3">
+    <div class="card bg-base-200 p-3 space-y-1">
       <div><span class="font-medium">Expire (s):</span> ${meta.expire_seconds ?? "—"}</div>
-      <div><span class="font-medium">Retention (min):</span> ${meta.retention_minutes ?? "—"}</div>
+      <div><span class="font-medium">Retention (s):</span> ${meta.retention_seconds ?? "—"}</div>
+      <div><span class="font-medium">Delete After (s):</span> ${meta.delete_after_seconds ?? "—"}</div>
+      <div><span class="font-medium">Warning Queue Size:</span> ${meta.warning_queue_size ?? "—"}</div>
+      <div><span class="font-medium">Partitioned Table:</span> ${meta.partition ? "Yes" : "No"}</div>
       <div><span class="font-medium">Dead-letter:</span> ${meta.dead_letter ?? "—"}</div>
     </div>
   </div>`;
@@ -85,11 +94,11 @@ function ConfigGrid({ meta }: { meta: QueueMeta }) {
 export function QueueDetailCard({
   meta,
   counts,
-  schedule,
+  schedules,
 }: {
   meta: QueueMeta | null;
   counts: QueueStateCounts | null;
-  schedule: QueueSchedule | null;
+  schedules: QueueSchedule[];
 }) {
   if (!meta) {
     return html`<div class="alert alert-error"><span>Queue not found</span></div>`;
@@ -122,13 +131,27 @@ export function QueueDetailCard({
         <div class="divider">Configuration</div>
         ${ConfigGrid({ meta })}
 
-        <div class="divider">Schedule</div>
+        <div class="divider">Schedules</div>
         ${
-          schedule
-            ? html`<div class="alert alert-soft"><span>Cron: <code class="font-mono">${schedule.cron}</code>${
-                schedule.timezone ? ` (${schedule.timezone})` : ""
-              }</span></div>`
-            : html`<div class="alert"><span>No schedule</span></div>`
+          schedules.length > 0
+            ? html`<div class="space-y-2">
+              ${schedules.map(
+                (schedule) =>
+                  html`<div class="alert alert-soft flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span>
+                    Cron: <code class="font-mono">${schedule.cron}</code>${
+                      schedule.timezone ? ` (${schedule.timezone})` : ""
+                    }
+                  </span>
+                  ${
+                    schedule.key
+                      ? html`<span class="badge badge-outline">Key: ${schedule.key}</span>`
+                      : ""
+                  }
+                </div>`
+              )}
+            </div>`
+            : html`<div class="alert"><span>No schedules</span></div>`
         }
       </div>
     </section>

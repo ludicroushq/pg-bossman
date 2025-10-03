@@ -31,6 +31,13 @@ class BossmanWorker<
     Record<string, unknown>
   >,
 > {
+  private static scheduleIdentifier(
+    name: string,
+    key: string | null | undefined
+  ): string {
+    return `${name}::${key ?? ""}`;
+  }
+
   private readonly pgBoss: PgBoss;
   private readonly jobs: Map<string, QueueDefinition>;
   private isWorkerStarted = false;
@@ -132,38 +139,21 @@ class BossmanWorker<
 
     // Create queues for all registered definitions (required in pg-boss v10+)
     for (const [name, job] of this.jobs) {
+      const { batchSize: _batchSize, ...queueOptions } = job.options ?? {};
+      const pgBossQueue = {
+        name,
+        ...queueOptions,
+      } satisfies PgBoss.Queue;
+
       try {
-        // Pass options directly to pg-boss - they match the PgBoss.Queue type
-        const queueOptions = {
-          name,
-          ...job.options,
-        };
-        await this.pgBoss.createQueue(name, queueOptions);
+        await this.pgBoss.createQueue(name, pgBossQueue);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         if (!errorMessage.includes("already exists")) {
           throw error;
         }
-        // Queue exists, update it with current options
-        // Always update to ensure removed options are cleared (undefined for pg-boss)
-        // Using satisfies to ensure we handle all queue option keys
-        type QueueUpdateOptions = Omit<PgBoss.Queue, "name">;
-        const updateOptions = {
-          deadLetter: job.options?.deadLetter,
-          expireInHours: job.options?.expireInHours,
-          expireInMinutes: job.options?.expireInMinutes,
-          expireInSeconds: job.options?.expireInSeconds,
-          policy: job.options?.policy,
-          retentionDays: job.options?.retentionDays,
-          retentionHours: job.options?.retentionHours,
-          retentionMinutes: job.options?.retentionMinutes,
-          retentionSeconds: job.options?.retentionSeconds,
-          retryBackoff: job.options?.retryBackoff,
-          retryDelay: job.options?.retryDelay,
-          retryLimit: job.options?.retryLimit,
-        } satisfies Partial<QueueUpdateOptions>;
-        await this.pgBoss.updateQueue(name, { name, ...updateOptions });
+        await this.pgBoss.updateQueue(name, pgBossQueue);
       }
     }
 
@@ -222,24 +212,76 @@ class BossmanWorker<
 
   private async reconcileSchedules(): Promise<void> {
     const existing = await this.pgBoss.getSchedules();
-    const existingNames = new Set(existing.map((s) => s.name));
+    const remaining = new Map(
+      existing.map((schedule) => [
+        BossmanWorker.scheduleIdentifier(schedule.name, schedule.key),
+        schedule,
+      ])
+    );
 
-    for (const [name, job] of this.jobs) {
-      const schedule = (job as QueueDefinition).schedule;
-      if (schedule) {
-        await this.pgBoss.schedule(
-          name,
-          schedule.cron,
-          (schedule.data as object) ?? {},
-          schedule.options
-        );
-        existingNames.delete(name);
+    const existingByQueue = new Map<string, PgBoss.Schedule[]>();
+    for (const schedule of existing) {
+      const list = existingByQueue.get(schedule.name);
+      if (list) {
+        list.push(schedule);
+      } else {
+        existingByQueue.set(schedule.name, [schedule]);
       }
     }
 
-    for (const leftover of existingNames) {
-      await this.pgBoss.unschedule(leftover);
+    for (const [name, job] of this.jobs) {
+      await this.applySchedulesForQueue(
+        name,
+        job as QueueDefinition,
+        existingByQueue.get(name) ?? [],
+        remaining
+      );
     }
+
+    for (const schedule of remaining.values()) {
+      await this.unscheduleSchedule(schedule);
+    }
+  }
+
+  private async applySchedulesForQueue(
+    name: string,
+    job: QueueDefinition,
+    existing: PgBoss.Schedule[],
+    remaining: Map<string, PgBoss.Schedule>
+  ): Promise<void> {
+    const definitions = job.schedules ?? [];
+
+    if (definitions.length === 0) {
+      for (const schedule of existing) {
+        remaining.delete(
+          BossmanWorker.scheduleIdentifier(schedule.name, schedule.key)
+        );
+        await this.unscheduleSchedule(schedule);
+      }
+      return;
+    }
+
+    for (const schedule of definitions) {
+      const key = schedule.key;
+      const scheduleOptions = schedule.options
+        ? { ...schedule.options, key }
+        : ({ key } satisfies PgBoss.ScheduleOptions);
+
+      await this.pgBoss.schedule(
+        name,
+        schedule.cron,
+        (schedule.data as object) ?? {},
+        scheduleOptions
+      );
+      remaining.delete(BossmanWorker.scheduleIdentifier(name, key));
+    }
+  }
+
+  private async unscheduleSchedule(schedule: PgBoss.Schedule): Promise<void> {
+    await this.pgBoss.unschedule(
+      schedule.name,
+      schedule.key ? schedule.key : undefined
+    );
   }
 
   /**

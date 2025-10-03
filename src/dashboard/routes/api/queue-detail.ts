@@ -39,15 +39,16 @@ export const queueDetail = new Hono<Env>().get(
     const counts = await getQueueStateCounts(boss, name);
 
     // schedule info - schedules use the full queue name (e.g., "processPayment")
-    const schedules = (await boss.getSchedules?.(name)) as
+    const allSchedules = (await boss.getSchedules?.()) as
       | QueueSchedule[]
       | null;
+    const schedules = allSchedules?.filter((s) => s.name === name) ?? [];
 
     return c.html(
       QueueDetailCard({
         counts,
         meta,
-        schedules: schedules ?? [],
+        schedules,
       })
     );
   }

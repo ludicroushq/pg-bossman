@@ -23,6 +23,16 @@ export const processPaymentJob = createQueue()
     },
     key: "default",
   })
+  .schedule({
+    cron: "*/5 * * * *",
+    data: {
+      amount: 500,
+      currency: "EUR",
+      customerId: "456",
+      orderId: "456",
+    },
+    key: "large-payments",
+  })
   .handler(async (input) => {
     console.log(
       `💳 Processing payment of ${input.amount} ${input.currency} for order ${input.orderId}`

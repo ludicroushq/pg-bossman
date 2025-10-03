@@ -43,12 +43,23 @@ async function executeWithParams(
  * Format error for pg-boss
  */
 function formatPgError(error: unknown, text: string) {
+  // Ignore expected cleanup errors when PGlite is closed during test teardown
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  if (errorMessage.includes("PGlite is closed")) {
+    // Silently ignore - this is expected during test cleanup
+    return {
+      code: "CLOSED",
+      message: errorMessage,
+      severity: "INFO",
+    };
+  }
+
   console.error("PGlite query error:", error);
   console.error("Query preview:", text.substring(0, QUERY_PREVIEW_LENGTH));
 
   return {
     code: (error as { code?: string }).code,
-    message: error instanceof Error ? error.message : String(error),
+    message: errorMessage,
     position: (error as { position?: number }).position,
     severity: (error as { severity?: string }).severity || "ERROR",
   };

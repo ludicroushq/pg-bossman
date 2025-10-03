@@ -32,6 +32,11 @@ export function createPgBoss(
 
   // Always handle error events to prevent losing error information
   pgBoss.on("error", (error: Error) => {
+    // Ignore expected cleanup errors when database connection is closed
+    // This happens during test cleanup when PGlite closes before pg-boss workers finish
+    if (error.message?.includes("Database connection is not opened")) {
+      return;
+    }
     console.error(`[pg-bossman ${context}] Error:`, error);
   });
 

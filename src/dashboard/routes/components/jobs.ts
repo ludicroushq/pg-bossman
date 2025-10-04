@@ -20,9 +20,37 @@ export function JobItem({ job, basePath }: { job: JobRow; basePath: string }) {
     <td><span class="badge ${stateClass}">${job.state}</span></td>
     <td class="hidden sm:table-cell">${job.priority}</td>
     <td class="hidden md:table-cell">${job.retry_count}/${job.retry_limit}</td>
-    <td class="hidden lg:table-cell">${job.started_on ? new Date(job.started_on).toLocaleString() : "—"}</td>
-    <td class="hidden lg:table-cell">${job.completed_on ? new Date(job.completed_on).toLocaleString() : "—"}</td>
-    <td class="text-xs">${job.created_on ? new Date(job.created_on).toLocaleString() : "—"}</td>
+    <td class="hidden lg:table-cell">
+      ${
+        job.started_on
+          ? html`<span class="cursor-help" title="${new Date(job.started_on).toLocaleString()}">
+            <span data-relative-time="${new Date(job.started_on).toISOString()}"></span>
+          </span>`
+          : "—"
+      }
+    </td>
+    <td class="hidden lg:table-cell">
+      ${(() => {
+        if (job.completed_on && job.started_on) {
+          return html`<span class="cursor-help" title="${new Date(job.completed_on).toLocaleString()}">
+              <span data-duration-between-start="${new Date(job.started_on).toISOString()}" data-duration-between-end="${new Date(job.completed_on).toISOString()}"></span>
+            </span>`;
+        }
+        if (job.completed_on) {
+          return html`<span>${new Date(job.completed_on).toLocaleString()}</span>`;
+        }
+        return "—";
+      })()}
+    </td>
+    <td>
+      ${
+        job.created_on
+          ? html`<span class="cursor-help" title="${new Date(job.created_on).toLocaleString()}">
+            <span data-relative-time="${new Date(job.created_on).toISOString()}"></span>
+          </span>`
+          : "—"
+      }
+    </td>
   </tr>`;
 }
 

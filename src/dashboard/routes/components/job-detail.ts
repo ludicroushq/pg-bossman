@@ -91,8 +91,22 @@ export function JobDetailCard({
                 </div>
                 <div class="flex justify-between">
                   <span class="opacity-60">Retry Delay:</span>
-                  <span>${job.retry_delay}s</span>
+                  <span class="cursor-help" title="${job.retry_delay}s">
+                    <span data-duration="${job.retry_delay}"></span>
+                  </span>
                 </div>
+                ${
+                  job.retry_delay_max != null
+                    ? html`
+                <div class="flex justify-between">
+                  <span class="opacity-60">Retry Delay Max:</span>
+                  <span class="cursor-help" title="${job.retry_delay_max}s">
+                    <span data-duration="${job.retry_delay_max}"></span>
+                  </span>
+                </div>
+                `
+                    : ""
+                }
                 ${
                   job.retry_backoff
                     ? html`
@@ -113,19 +127,51 @@ export function JobDetailCard({
               <div class="text-sm space-y-1">
                 <div class="flex justify-between">
                   <span class="opacity-60">Created:</span>
-                  <span class="text-xs">${job.created_on ? new Date(job.created_on).toLocaleString() : "—"}</span>
+                  ${
+                    job.created_on
+                      ? html`<span class="cursor-help" title="${new Date(job.created_on).toLocaleString()}">
+                        <span data-relative-time="${new Date(job.created_on).toISOString()}"></span>
+                      </span>`
+                      : html`<span>—</span>`
+                  }
                 </div>
                 <div class="flex justify-between">
                   <span class="opacity-60">Start After:</span>
-                  <span class="text-xs">${job.start_after ? new Date(job.start_after).toLocaleString() : "—"}</span>
+                  ${(() => {
+                    if (job.start_after && job.created_on) {
+                      return html`<span class="cursor-help" title="${new Date(job.start_after).toLocaleString()}">
+                          <span data-duration-between-start="${new Date(job.created_on).toISOString()}" data-duration-between-end="${new Date(job.start_after).toISOString()}" data-show-in="false"></span>
+                        </span>`;
+                    }
+                    if (job.start_after) {
+                      return html`<span>${new Date(job.start_after).toLocaleString()}</span>`;
+                    }
+                    return html`<span>—</span>`;
+                  })()}
                 </div>
                 <div class="flex justify-between">
                   <span class="opacity-60">Started:</span>
-                  <span class="text-xs">${job.started_on ? new Date(job.started_on).toLocaleString() : "—"}</span>
+                  ${
+                    job.started_on
+                      ? html`<span class="cursor-help" title="${new Date(job.started_on).toLocaleString()}">
+                        <span data-relative-time="${new Date(job.started_on).toISOString()}"></span>
+                      </span>`
+                      : html`<span>—</span>`
+                  }
                 </div>
                 <div class="flex justify-between">
                   <span class="opacity-60">Completed:</span>
-                  <span class="text-xs">${job.completed_on ? new Date(job.completed_on).toLocaleString() : "—"}</span>
+                  ${(() => {
+                    if (job.completed_on && job.started_on) {
+                      return html`<span class="cursor-help" title="${new Date(job.completed_on).toLocaleString()}">
+                          <span data-duration-between-start="${new Date(job.started_on).toISOString()}" data-duration-between-end="${new Date(job.completed_on).toISOString()}"></span>
+                        </span>`;
+                    }
+                    if (job.completed_on) {
+                      return html`<span>${new Date(job.completed_on).toLocaleString()}</span>`;
+                    }
+                    return html`<span>—</span>`;
+                  })()}
                 </div>
               </div>
             </div>
@@ -135,9 +181,11 @@ export function JobDetailCard({
         <!-- Additional metadata if present -->
         ${
           job.singleton_key ||
-          job.expire_in ||
+          job.expire_seconds != null ||
+          job.delete_after_seconds != null ||
           job.keep_until ||
-          job.dead_letter
+          job.dead_letter ||
+          job.policy
             ? html`
         <div class="card bg-base-200">
           <div class="card-body p-4 gap-2">
@@ -154,11 +202,25 @@ export function JobDetailCard({
                   : ""
               }
               ${
-                job.expire_in
+                job.expire_seconds != null
                   ? html`
               <div class="flex justify-between">
-                <span class="opacity-60">Expire In:</span>
-                <span>${job.expire_in}</span>
+                <span class="opacity-60">Expire:</span>
+                <span class="cursor-help" title="${job.expire_seconds}s">
+                  <span data-duration="${job.expire_seconds}"></span>
+                </span>
+              </div>
+              `
+                  : ""
+              }
+              ${
+                job.delete_after_seconds != null
+                  ? html`
+              <div class="flex justify-between">
+                <span class="opacity-60">Delete After:</span>
+                <span class="cursor-help" title="${job.delete_after_seconds}s">
+                  <span data-duration="${job.delete_after_seconds}"></span>
+                </span>
               </div>
               `
                   : ""
@@ -168,7 +230,7 @@ export function JobDetailCard({
                   ? html`
               <div class="flex justify-between">
                 <span class="opacity-60">Keep Until:</span>
-                <span class="text-xs">${new Date(job.keep_until).toLocaleString()}</span>
+                <span>${new Date(job.keep_until).toLocaleString()}</span>
               </div>
               `
                   : ""
@@ -183,16 +245,10 @@ export function JobDetailCard({
               `
                   : ""
               }
-              ${
-                job.policy
-                  ? html`
               <div class="flex justify-between">
                 <span class="opacity-60">Policy:</span>
-                <span>${job.policy}</span>
+                <span>${job.policy ?? "standard"}</span>
               </div>
-              `
-                  : ""
-              }
             </div>
           </div>
         </div>

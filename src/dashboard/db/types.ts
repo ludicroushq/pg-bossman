@@ -17,12 +17,14 @@ export type JobRow = {
   retry_limit: number;
   retry_count: number;
   retry_delay: number;
+  retry_delay_max: number | null;
   retry_backoff: boolean;
   start_after: Date | string | null;
   started_on: Date | string | null;
   singleton_key: string | null;
   singleton_on: Date | string | null;
-  expire_in: unknown; // PostgreSQL interval type (can be string or object)
+  expire_seconds: number;
+  delete_after_seconds: number;
   created_on: Date | string;
   completed_on: Date | string | null;
   keep_until: Date | string | null;

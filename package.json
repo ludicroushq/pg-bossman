@@ -7,26 +7,29 @@
     "access": "public"
   },
   "description": "a pg-boss wrapper that comes with a type safe API, reasonable defaults, and a dashboard",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "devDependencies": {
-    "@biomejs/biome": "2.2.2",
+    "@biomejs/biome": "2.2.5",
     "@changesets/cli": "^2.29.7",
-    "@electric-sql/pglite": "^0.3.8",
-    "@types/node": "^24.3.3",
+    "@electric-sql/pglite": "^0.3.10",
+    "@types/node": "^24.6.2",
     "@types/prismjs": "^1.26.5",
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
-    "@vvo/tzdb": "^6.183.0",
+    "@vvo/tzdb": "^6.186.0",
     "frunk": "^0.0.4",
-    "lefthook": "^1.13.0",
-    "pg-boss": "^10.3.3",
-    "tsdown": "^0.15.1",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
-    "ultracite": "5.3.2",
+    "lefthook": "^1.13.6",
+    "pg-boss": "^11.0.4",
+    "tsdown": "^0.15.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "ultracite": "5.5.0",
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "hono": "^4.4.3",
+    "hono": "^4.9.9",
     "prismjs": "^1.30.0",
     "typed-htmx": "^0.3.1"
   },
@@ -58,7 +61,7 @@
   "name": "pg-bossman",
   "packageManager": "pnpm@10.0.0",
   "peerDependencies": {
-    "pg-boss": "^10.0.0"
+    "pg-boss": "^11.0.0"
   },
   "repository": {
     "type": "git",

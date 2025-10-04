@@ -6,12 +6,17 @@
 
 pg-bossman is a TypeScript wrapper around pg-boss that provides a type-safe, tRPC-like API for PostgreSQL-based job queues. It offers both worker (job processing) and client (job sending) capabilities with full TypeScript type inference.
 
+## Compatibility
+
+- `0.0.x` tracks pg-boss v10
+- `0.1.x` tracks pg-boss v11 (requires Node 22+)
+
 ## Core Concepts
 
 ### 1. Job Definitions
-Jobs are created using the `createJob()` builder pattern:
+Jobs are created using the `createQueue()` builder pattern:
 ```typescript
-const myJob = createJob()
+const myJob = createQueue()
   .options({ retryLimit: 3 })
   .handler((input: { name: string }) => {
     // Job logic here
@@ -28,8 +33,8 @@ The worker processes jobs and can also send jobs:
 ```typescript
 const bossman = createBossman({ connectionString })
   .register({
-    myJob: createJob().handler(...),
-    sendWelcomeEmail: createJob().handler(...),
+    myJob: createQueue().handler(...),
+    sendWelcomeEmail: createQueue().handler(...),
   })
   .build();
 
@@ -82,7 +87,7 @@ src/
 
 ### Type System
 
-1. **Parameterless Jobs**: Jobs without parameters infer input as `unknown`. `send()` and `schedule()` accept optional data; if omitted, `{}` is sent.
+1. **Parameterless Jobs**: Jobs without parameters infer input as `unknown`. `send()` and `schedule()` accept optional data; if omitted, `{}` is sent. Every schedule requires an explicit key (use a convention like `"default"`).
 
 2. **Flat Jobs Map**: A single-level object `JobsMap = Record<string, JobWithoutName>` keyed by queue names (e.g., `sendWelcomeEmail`). Worker builds a concrete client map. Client uses a minimal proxy.
 
@@ -124,11 +129,11 @@ Tests use:
 1. **Flat jobs map**: Replaced nested routers with a single-level jobs object keyed by queue names.
 2. **Removed proxy**: Client is a concrete map; lazy init handled inside JobClient.
 3. **Simplified types**: `JobsMap`, `JobWithoutName`, `InferInputFromJob` introduced; router flattening removed.
-4. **Scheduling semantics**: Schedule/unschedule target queue name directly (pg-boss v10).
+4. **Scheduling semantics**: QueueBuilder `schedule()` requires a key per schedule. Keys dedupe entries (overwriting matching keys) and map directly onto pg-boss v11 multi-schedule support.
 5. **Dashboard rewrite**: Removed React/Vite SPA. New dashboard is a pure Hono SSR handler mounted under a configurable basePath. No RPC/ORPC.
 6. **Client API**: `createClient` now exposes `getPgBoss(): Promise<PgBoss>` for read-only dashboard endpoints.
 7. **Dashboard Export**: `createDashboard` is re-exported from `src/dashboard/index.ts` and surfaced via the root `src/index.ts`. The final build (`dist/index.*`) includes `createDashboard` in the root export.
-8. **QueueOptions Update**: `QueueOptions` now extends `Partial<PgBoss.Queue>` (plus `batchSize`) instead of `Partial<PgBoss.SendOptions)`. This aligns queue creation/update with pg-boss v10 types (`policy`, `deadLetter`, retention/expire/retry fields).
+8. **QueueOptions Update**: `QueueOptions` now extends `Partial<Omit<PgBoss.Queue, "name">>` (plus `batchSize`). When creating/updating queues we strip `batchSize` before passing options so only pg-boss fields flow through.
 9. **Queue Update Typing**: When calling `updateQueue`, we include `{ name, ...options }` to satisfy pg-boss `Queue` typing where `name` is required in the options type.
 10. **JSX Augmentation**: Replaced `declare module "hono/jsx"` augmentation with a global `JSX` declaration in `src/dashboard/htmx.ts` to avoid typecheck errors when JSX module isn't imported. Dashboard continues to use `hono/html` template tags (no TSX).
 11. **Typecheck Script**: Added `"typecheck": "tsc -p tsconfig.json --noEmit"` to `package.json` for CI and local checks.
@@ -138,6 +143,10 @@ Tests use:
 15. **Client Accessor Change**: `bossman.client` is now a property (not a function). Update usages from `bossman.client().queues...` to `bossman.client.queues...`. Dashboard `createDashboard` accepts `client: bossman.client`.
 16. **Refresh Toggle OOB Update**: The queue jobs list response now emits an OOB swap that re-renders the refresh control with the latest URL metadata (derived from `HX-Current-URL`). This keeps the "turn on/off" toggle anchored to the current pagination/filter query params instead of jumping back to the first page when the refresh state is flipped.
 17. **Prism ESM Compatibility**: PrismJS language component imports include the `.js` extension so Vite/Node ESM resolution finds the bundled files without manual aliases.
+18. **pg-boss v11 Upgrade**: The `0.1.x` release line targets pg-boss v11 (Node 22+). Archives are gone — completed jobs stay in `pgboss.job`, `getQueues()` exposes live counters, and queue creation supports optional `partition` plus `deleteAfterSeconds` defaults.
+19. **Multi-schedule Support**: `reconcileSchedules()` now works with `(name, key)` pairs. Every schedule definition must supply a key; reconciliation unschedules leftovers per key, and the dashboard renders each keyed schedule (badge + cron + timezone).
+20. **Dashboard Data Refresh**: Job detail cards surface `expire_seconds`, `delete_after_seconds`, and `retry_delay_max`; queue detail cards show new lifecycle fields (`retention_seconds`, `warning_queue_size`, `partition`). Custom SQL only targets `pgboss.job`—no archive unions remain.
+21. **createPgBoss Defaults**: Constructor defaults align with v11: daily maintenance, supervision enabled, and warning thresholds set to pg-boss defaults.
 
 ## Dashboard
 
@@ -154,7 +163,7 @@ Tests use:
 
 ### Creating a Job with No Parameters
 ```typescript
-const myJob = createJob<void>().schedule("* * * * *").handler(() => {
+const myJob = createQueue<void>().schedule({ key: "default", cron: "* * * * *" }).handler(() => {
   // No input needed
   return { success: true };
 });
@@ -178,16 +187,16 @@ const batchJob = createJob()
 ### Job Names
 ```typescript
 const jobs = {
-  sendWelcomeEmail: createJob().handler(...),
-  sendPasswordResetEmail: createJob().handler(...),
-  dataExport: createJob().handler(...), // Prefer camelCase; dots/namespaces supported but discouraged
+  sendWelcomeEmail: createQueue().handler(...),
+  sendPasswordResetEmail: createQueue().handler(...),
+  dataExport: createQueue().handler(...), // Prefer camelCase; dots/namespaces supported but discouraged
 };
 ```
 
 ### Declaring Input Type Up-Front (recommended)
 // Declare the input type so schedule() enforces providing data
 const testJob = createQueue<{ user: { userId: string } }>()
-  .schedule("0 * * * *", { user: { userId: "123" } })
+  .schedule({ key: "default", cron: "0 * * * *", data: { user: { userId: "123" } } })
   .handler(({ user }) => {
     console.log(user.userId);
   });
@@ -195,14 +204,14 @@ const testJob = createQueue<{ user: { userId: string } }>()
 // Alternatively, use the input() helper
 const testJob2 = createQueue()
   .input<{ user: { userId: string } }>()
-  .schedule("0 * * * *", { user: { userId: "123" } })
+  .schedule({ key: "default", cron: "0 * * * *", data: { user: { userId: "123" } } })
   .handler(({ user }) => {
     console.log(user.userId);
   });
 
 // Parameterless job can omit data
 const tick = createQueue<void>()
-  .schedule("* * * * *")
+  .schedule({ key: "default", cron: "* * * * *" })
   .handler(() => console.log("tick"));
 
 ## Known Issues & Limitations

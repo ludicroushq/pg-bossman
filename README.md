@@ -24,9 +24,16 @@ pnpm add pg-bossman pg-boss
 
 **NOTE:** Until pg-bossman hits 1.0, breaking changes may be made on minor versions (0.x.0) and the remaining changes will be patch versions (0.0.x)
 
+## Compatibility
+
+| pg-bossman | pg-boss | Runtime |
+|------------|---------|---------|
+| `0.0.x`    | `^10.0.0` | Follows pg-boss v10 requirements (Node 18+ recommended) |
+| `0.1.x`    | `^11.0.0` | Requires Node 22+ (per pg-boss v11) |
+
 ## Quick Start
 
-Define queues (flat map), optionally add a schedule, build and start the worker. The client API is type-safe and identical in both the worker and a send-only client.
+Define queues (flat map), optionally add one or more keyed schedules, build and start the worker. The client API is type-safe and identical in both the worker and a send-only client. Use descriptive schedule keys (for single schedules a `"default"` key works well).
 
 ```ts
 import { createBossman, createClient, createQueue } from "pg-bossman";
@@ -37,9 +44,10 @@ const queues = {
     /* ...send email... */
   }),
 
-  // scheduled job (one schedule per queue)
+  // scheduled job (multiple schedules supported via keys)
   tick: createQueue<void>()
-    .schedule("* * * * *")
+    .schedule({ key: "default", cron: "* * * * *" })
+    .schedule({ key: "five-minutes", cron: "*/5 * * * *" })
     .handler(() => {
       /* ...do work... */
     }),

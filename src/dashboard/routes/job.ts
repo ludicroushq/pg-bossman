@@ -45,11 +45,11 @@ export const jobPage = new Hono<Env>().get("/:name/jobs/:id", (c) => {
             toggleHref,
           }),
         })}
-        <div class="grid gap-6">
+        <div class="flex flex-col gap-6">
           <!-- Job detail container with auto-refresh -->
-          <section 
-            id="job-detail" 
-            hx-get="${detailPath}" 
+          <section
+            id="job-detail"
+            hx-get="${detailPath}"
             hx-trigger="${refreshOn ? "load, every 5s" : "load"}"
             hx-indicator="#job-page-indicator"
           >

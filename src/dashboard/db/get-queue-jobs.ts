@@ -8,7 +8,7 @@ export type GetQueueJobsResult = {
 
 /**
  * Fetches jobs for a specific queue with pagination
- * Queries both the active job table and archive table
+ * Jobs remain in the job table in pg-boss v11, so we query a single table.
  */
 export async function getQueueJobs(
   boss: PgBoss,
@@ -18,33 +18,37 @@ export async function getQueueJobs(
 ): Promise<GetQueueJobsResult> {
   const db = getDb(boss);
 
-  // Query to get jobs from both job and archive tables
   const jobsSql = `
-    WITH combined_jobs AS (
-      SELECT id, name, state, priority, retry_limit, retry_count, retry_delay,
-             retry_backoff, start_after, started_on, singleton_key, singleton_on,
-             expire_in, created_on, completed_on, keep_until, dead_letter, policy,
-             data, output
-      FROM ${PGBOSS_SCHEMA}.job 
-      WHERE name = $1
-      UNION ALL
-      SELECT id, name, state, priority, retry_limit, retry_count, retry_delay,
-             retry_backoff, start_after, started_on, singleton_key, singleton_on,
-             expire_in, created_on, completed_on, keep_until, dead_letter, policy,
-             data, output
-      FROM ${PGBOSS_SCHEMA}.archive 
-      WHERE name = $1
-    )
-    SELECT * FROM combined_jobs
+    SELECT id,
+           name,
+           state,
+           priority,
+           retry_limit,
+           retry_count,
+           retry_delay,
+           retry_delay_max,
+           retry_backoff,
+           start_after,
+           started_on,
+           singleton_key,
+           singleton_on,
+           expire_seconds,
+           deletion_seconds AS delete_after_seconds,
+           created_on,
+           completed_on,
+           keep_until,
+           dead_letter,
+           policy,
+           data,
+           output
+    FROM ${PGBOSS_SCHEMA}.job
+    WHERE name = $1
     ORDER BY created_on DESC, id DESC
     LIMIT $2 OFFSET $3
   `;
 
-  // Query to get total count
   const countSql = `
-    SELECT 
-      (SELECT COUNT(*) FROM ${PGBOSS_SCHEMA}.job WHERE name = $1) +
-      (SELECT COUNT(*) FROM ${PGBOSS_SCHEMA}.archive WHERE name = $1) AS total
+    SELECT COUNT(*) AS total FROM ${PGBOSS_SCHEMA}.job WHERE name = $1
   `;
 
   const [jobsResult, countResult] = await Promise.all([

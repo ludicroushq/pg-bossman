@@ -12,6 +12,10 @@ import type {
 } from "./types/index";
 import { isBatchQueue, isPromise } from "./types/index";
 
+// Validation patterns
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Control characters are intentionally checked for validation
+const INVALID_NAME_PATTERN = /^__|[\x00-\x1F\x7F]/;
+
 /**
  * Worker instance with queue processing capabilities
  * This class is internal to create-bossman and contains all worker logic
@@ -31,6 +35,13 @@ class BossmanWorker<
     Record<string, unknown>
   >,
 > {
+  private static scheduleIdentifier(
+    name: string,
+    key: string | null | undefined
+  ): string {
+    return `${name}::${key ?? ""}`;
+  }
+
   private readonly pgBoss: PgBoss;
   private readonly jobs: Map<string, QueueDefinition>;
   private isWorkerStarted = false;
@@ -132,38 +143,21 @@ class BossmanWorker<
 
     // Create queues for all registered definitions (required in pg-boss v10+)
     for (const [name, job] of this.jobs) {
+      const { batchSize: _batchSize, ...queueOptions } = job.options ?? {};
+      const pgBossQueue = {
+        name,
+        ...queueOptions,
+      } satisfies PgBoss.Queue;
+
       try {
-        // Pass options directly to pg-boss - they match the PgBoss.Queue type
-        const queueOptions = {
-          name,
-          ...job.options,
-        };
-        await this.pgBoss.createQueue(name, queueOptions);
+        await this.pgBoss.createQueue(name, pgBossQueue);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
         if (!errorMessage.includes("already exists")) {
           throw error;
         }
-        // Queue exists, update it with current options
-        // Always update to ensure removed options are cleared (undefined for pg-boss)
-        // Using satisfies to ensure we handle all queue option keys
-        type QueueUpdateOptions = Omit<PgBoss.Queue, "name">;
-        const updateOptions = {
-          deadLetter: job.options?.deadLetter,
-          expireInHours: job.options?.expireInHours,
-          expireInMinutes: job.options?.expireInMinutes,
-          expireInSeconds: job.options?.expireInSeconds,
-          policy: job.options?.policy,
-          retentionDays: job.options?.retentionDays,
-          retentionHours: job.options?.retentionHours,
-          retentionMinutes: job.options?.retentionMinutes,
-          retentionSeconds: job.options?.retentionSeconds,
-          retryBackoff: job.options?.retryBackoff,
-          retryDelay: job.options?.retryDelay,
-          retryLimit: job.options?.retryLimit,
-        } satisfies Partial<QueueUpdateOptions>;
-        await this.pgBoss.updateQueue(name, { name, ...updateOptions });
+        await this.pgBoss.updateQueue(name, pgBossQueue);
       }
     }
 
@@ -222,24 +216,76 @@ class BossmanWorker<
 
   private async reconcileSchedules(): Promise<void> {
     const existing = await this.pgBoss.getSchedules();
-    const existingNames = new Set(existing.map((s) => s.name));
+    const remaining = new Map(
+      existing.map((schedule) => [
+        BossmanWorker.scheduleIdentifier(schedule.name, schedule.key),
+        schedule,
+      ])
+    );
 
-    for (const [name, job] of this.jobs) {
-      const schedule = (job as QueueDefinition).schedule;
-      if (schedule) {
-        await this.pgBoss.schedule(
-          name,
-          schedule.cron,
-          (schedule.data as object) ?? {},
-          schedule.options
-        );
-        existingNames.delete(name);
+    const existingByQueue = new Map<string, PgBoss.Schedule[]>();
+    for (const schedule of existing) {
+      const list = existingByQueue.get(schedule.name);
+      if (list) {
+        list.push(schedule);
+      } else {
+        existingByQueue.set(schedule.name, [schedule]);
       }
     }
 
-    for (const leftover of existingNames) {
-      await this.pgBoss.unschedule(leftover);
+    for (const [name, job] of this.jobs) {
+      await this.applySchedulesForQueue(
+        name,
+        job as QueueDefinition,
+        existingByQueue.get(name) ?? [],
+        remaining
+      );
     }
+
+    for (const schedule of remaining.values()) {
+      await this.unscheduleSchedule(schedule);
+    }
+  }
+
+  private async applySchedulesForQueue(
+    name: string,
+    job: QueueDefinition,
+    existing: PgBoss.Schedule[],
+    remaining: Map<string, PgBoss.Schedule>
+  ): Promise<void> {
+    const definitions = job.schedules ?? [];
+
+    if (definitions.length === 0) {
+      for (const schedule of existing) {
+        remaining.delete(
+          BossmanWorker.scheduleIdentifier(schedule.name, schedule.key)
+        );
+        await this.unscheduleSchedule(schedule);
+      }
+      return;
+    }
+
+    for (const schedule of definitions) {
+      const key = schedule.key;
+      const scheduleOptions = schedule.options
+        ? { ...schedule.options, key }
+        : ({ key } satisfies PgBoss.ScheduleOptions);
+
+      await this.pgBoss.schedule(
+        name,
+        schedule.cron,
+        (schedule.data as object) ?? {},
+        scheduleOptions
+      );
+      remaining.delete(BossmanWorker.scheduleIdentifier(name, key));
+    }
+  }
+
+  private async unscheduleSchedule(schedule: PgBoss.Schedule): Promise<void> {
+    await this.pgBoss.unschedule(
+      schedule.name,
+      schedule.key ? schedule.key : undefined
+    );
   }
 
   /**
@@ -422,11 +468,9 @@ class BossmanBuilder<
   >,
 > {
   private readonly pgBoss: PgBoss;
-  // biome-ignore lint/style/useReadonlyClassProperties: This is reassigned in the register method
   private router?: TQueues;
   // eventsDef reserved for future; not used at runtime
   // biome-ignore lint/correctness/noUnusedPrivateClassMembers: Reserved for future event type tracking
-  // biome-ignore lint/style/useReadonlyClassProperties: Assigned via builder method
   private eventsDef?: TEvents;
   private subscriptionMap: Map<string, RuntimeSubscription[]> = new Map();
 
@@ -436,10 +480,45 @@ class BossmanBuilder<
 
   /**
    * Register queues with the bossman instance
+   *
+   * @param router - Map of queue names to queue definitions
+   * @throws TypeError if queue names are invalid or router is empty
+   *
+   * @example
+   * ```typescript
+   * const bossman = createBossman({ connectionString: '...' })
+   *   .register({
+   *     sendEmail: createQueue().handler(...),
+   *     processPayment: createQueue().handler(...),
+   *   })
+   *   .build();
+   * ```
    */
   register<TNewQueues extends QueuesMap>(
     router: TNewQueues
   ): BossmanBuilder<TNewQueues, TEvents> {
+    // Validate router is not empty
+    if (!router || typeof router !== "object") {
+      throw new TypeError("register requires a non-null object of queues");
+    }
+
+    const queueNames = Object.keys(router);
+    if (queueNames.length === 0) {
+      throw new TypeError("register requires at least one queue");
+    }
+
+    // Validate queue names
+    for (const name of queueNames) {
+      if (!name || name.trim().length === 0) {
+        throw new TypeError("Queue names cannot be empty or whitespace-only");
+      }
+      if (INVALID_NAME_PATTERN.test(name)) {
+        throw new TypeError(
+          `Invalid queue name "${name}": cannot start with __ (reserved) or contain control characters`
+        );
+      }
+    }
+
     // We need to cast here because TypeScript can't track the type change
     const builder = this as unknown as BossmanBuilder<TNewQueues, TEvents>;
     builder.router = router;
@@ -533,19 +612,62 @@ class BossmanBuilder<
 /**
  * Create a pg-bossman instance builder
  *
- * Usage:
- * const bossman = createBossman({ connectionString: 'postgres://...' })
+ * @param options - pg-boss constructor options (connectionString, db, etc.)
+ * @returns A builder instance to configure queues and events
+ * @throws TypeError if options is invalid
+ *
+ * @example
+ * ```typescript
+ * // Basic usage
+ * const bossman = createBossman({
+ *   connectionString: 'postgres://user:pass@localhost/mydb'
+ * })
  *   .register({
- *     sendEmail: createQueue().handler(...),
- *     images: {
- *       resize: createQueue().batchHandler(...)
- *     }
+ *     sendEmail: createQueue()
+ *       .input<{ to: string; subject: string }>()
+ *       .handler(async (input) => {
+ *         await emailService.send(input.to, input.subject);
+ *       }),
+ *     processPayment: createQueue()
+ *       .input<{ amount: number }>()
+ *       .options({ retryLimit: 5 })
+ *       .handler(async (input) => {
+ *         return await paymentGateway.charge(input.amount);
+ *       })
  *   })
  *   .build();
+ *
+ * // With custom options
+ * const bossman = createBossman({
+ *   connectionString: 'postgres://localhost/mydb',
+ *   maintenanceIntervalSeconds: 3600,
+ *   superviseIntervalSeconds: 30,
+ *   warningQueueSize: 5000
+ * })
+ *   .register({ ... })
+ *   .build();
+ *
+ * // Start worker
+ * await bossman.start();
+ *
+ * // Use client to send jobs
+ * await bossman.client.queues.sendEmail.send({
+ *   to: 'user@example.com',
+ *   subject: 'Welcome!'
+ * });
+ * ```
  */
 export function createBossman(
   options: PgBoss.ConstructorOptions
 ): BossmanBuilder {
+  if (!options) {
+    throw new TypeError("createBossman requires options object");
+  }
+  if (!(options.connectionString || options.db)) {
+    throw new TypeError(
+      "createBossman requires either connectionString or db option"
+    );
+  }
   return new BossmanBuilder(options);
 }
 

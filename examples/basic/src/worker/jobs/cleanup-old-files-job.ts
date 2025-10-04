@@ -1,8 +1,9 @@
 import { createQueue } from "pg-bossman";
 
 export const cleanupOldFilesJob = createQueue()
+  .input<{ daysOld: number; path: string }>()
   .options({ retryLimit: 1 })
-  .handler(async (input: { daysOld: number; path: string }) => {
+  .handler(async (input) => {
     console.log(
       `🗑️  Cleaning up files older than ${input.daysOld} days from ${input.path}`
     );

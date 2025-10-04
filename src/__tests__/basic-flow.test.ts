@@ -328,6 +328,41 @@ describe("Basic Queue Flow", () => {
     expect(allProcessed.some((item) => item.id === 2)).toBe(true);
   });
 
+  it("should support multiple schedules per queue", async () => {
+    const jobs = {
+      scheduledJob: createQueue()
+        .schedule({ cron: "* * * * *", key: "default" })
+        .schedule({ cron: "*/5 * * * *", key: "five-minutes" })
+        .handler(() => Promise.resolve()),
+    };
+
+    const bossman = createBossman({ db }).register(jobs).build();
+    bossmanInstances.push(bossman);
+
+    const originalOn = process.on;
+    process.on = ((event: string, listener: unknown) => {
+      if (event === "SIGTERM" || event === "SIGINT") {
+        return process;
+      }
+      return originalOn.call(
+        process,
+        event,
+        listener as (...args: unknown[]) => void
+      );
+    }) as typeof process.on;
+
+    await bossman.start();
+    process.on = originalOn;
+
+    const schedules = await bossman.getSchedules();
+    const jobSchedules = schedules.filter((s) => s.name === "scheduledJob");
+    expect(jobSchedules).toHaveLength(2);
+    expect(jobSchedules.map((s) => s.key).sort()).toEqual([
+      "default",
+      "five-minutes",
+    ]);
+  });
+
   it("should support nested routers", async () => {
     const emailsSent: Array<{ to: string; type: string }> = [];
 
@@ -336,9 +371,7 @@ describe("Basic Queue Flow", () => {
       // Top-level job with dash in name
       "data-export": createQueue()
         .input<void>()
-        .handler(() => {
-          return { exported: true };
-        }),
+        .handler(() => ({ exported: true })),
       "emails.sendPasswordReset": createQueue()
         .input<{ to: string }>()
         .handler((input) => {
@@ -352,9 +385,7 @@ describe("Basic Queue Flow", () => {
       "images.resize": createQueue()
         .input<{ url: string }>()
         .options({ batchSize: 2 })
-        .batchHandler((inputs) => {
-          return inputs.map((i) => ({ resized: i.url }));
-        }),
+        .batchHandler((inputs) => inputs.map((i) => ({ resized: i.url }))),
     };
 
     const bossman = createBossman({ db }).register(jobs).build();

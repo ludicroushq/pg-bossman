@@ -1,21 +1,17 @@
 import PgBoss from "pg-boss";
 
 /**
- * Default options for pg-boss instances
- * These can be overridden by passing custom options
+ * Default options for pg-boss instances.
+ * These align with pg-boss v11 maintenance defaults while ensuring
+ * supervision and scheduling are enabled out of the box.
  */
 const DEFAULT_OPTIONS: Partial<PgBoss.ConstructorOptions> = {
-  // Default retention policy
-  deleteAfterDays: 7,
-
-  // Default expiration (pg-boss max is 24 hours)
-  expireInMinutes: 15,
-  maintenanceIntervalMinutes: 10,
-  retryBackoff: true,
-  retryDelay: 60,
-
-  // Default retry configuration
-  retryLimit: 2,
+  maintenanceIntervalSeconds: 60 * 60 * 24,
+  schedule: true,
+  supervise: true,
+  superviseIntervalSeconds: 60,
+  warningQueueSize: 10_000,
+  warningSlowQuerySeconds: 30,
 };
 
 /**
@@ -36,8 +32,21 @@ export function createPgBoss(
 
   // Always handle error events to prevent losing error information
   pgBoss.on("error", (error: Error) => {
+    // Ignore expected cleanup errors when database connection is closed
+    // This happens during test cleanup when PGlite closes before pg-boss workers finish
+    if (error.message?.includes("Database connection is not opened")) {
+      return;
+    }
     console.error(`[pg-bossman ${context}] Error:`, error);
   });
+
+  // Handle warning events (pg-boss v11 feature)
+  pgBoss.on(
+    "warning",
+    (warning: { message: string; [key: string]: unknown }) => {
+      console.warn(`[pg-bossman ${context}] Warning:`, warning);
+    }
+  );
 
   return pgBoss;
 }
@@ -50,7 +59,6 @@ export function createLazyStarter(pgBoss: PgBoss) {
   let startPromise: Promise<void> | null = null;
 
   return async () => {
-    // biome-ignore lint/nursery/noUnnecessaryConditions: started is modified in the closure
     if (started) {
       return pgBoss;
     }

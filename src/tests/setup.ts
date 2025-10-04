@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { PGlite } from "@electric-sql/pglite";
 import type PgBoss from "pg-boss";
 
@@ -42,15 +43,58 @@ async function executeWithParams(
  * Format error for pg-boss
  */
 function formatPgError(error: unknown, text: string) {
+  // Ignore expected cleanup errors when PGlite is closed during test teardown
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  if (errorMessage.includes("PGlite is closed")) {
+    // Silently ignore - this is expected during test cleanup
+    return {
+      code: "CLOSED",
+      message: errorMessage,
+      severity: "INFO",
+    };
+  }
+
   console.error("PGlite query error:", error);
   console.error("Query preview:", text.substring(0, QUERY_PREVIEW_LENGTH));
 
   return {
     code: (error as { code?: string }).code,
-    message: error instanceof Error ? error.message : String(error),
+    message: errorMessage,
     position: (error as { position?: number }).position,
     severity: (error as { severity?: string }).severity || "ERROR",
   };
+}
+
+class BossmanTestDb extends EventEmitter {
+  readonly _pgbdb = true;
+  opened = true;
+  readonly events = { error: "error" } as const;
+
+  private readonly pglite: PGlite;
+
+  constructor(pglite: PGlite) {
+    super();
+    this.pglite = pglite;
+  }
+
+  async executeSql(text: string, values?: unknown[]) {
+    try {
+      if (!values || values.length === 0) {
+        return await executeWithoutParams(this.pglite, text);
+      }
+      return await executeWithParams(this.pglite, text, values);
+    } catch (error) {
+      throw formatPgError(error, text);
+    }
+  }
+
+  open() {
+    this.opened = true;
+  }
+
+  close() {
+    this.opened = false;
+  }
 }
 
 /**
@@ -60,25 +104,9 @@ function formatPgError(error: unknown, text: string) {
 export async function createTestDb() {
   const pglite = new PGlite();
 
-  // Wait for PGlite to be ready
   await pglite.waitReady;
 
-  // Create the adapter that pg-boss expects
-  const db = {
-    executeSql: async (text: string, values?: unknown[]) => {
-      try {
-        // Use exec for DDL and complex multi-statement queries
-        // This handles dollar-quoted strings and complex SQL properly
-        if (!values || values.length === 0) {
-          return await executeWithoutParams(pglite, text);
-        }
-        // Has parameters - must be a single statement
-        return await executeWithParams(pglite, text, values);
-      } catch (error) {
-        throw formatPgError(error, text);
-      }
-    },
-  };
+  const db = new BossmanTestDb(pglite);
 
   return { db, pglite };
 }

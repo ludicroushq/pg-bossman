@@ -16,19 +16,22 @@ export const queueDetail = new Hono<Env>().get(
     const name = c.req.param("name");
     const rawMeta = await boss.getQueue?.(name);
 
-    // Convert from pg-boss camelCase to our snake_case format
     const meta: QueueMeta | null = rawMeta
       ? {
           created_on: rawMeta.createdOn,
           dead_letter: rawMeta.deadLetter,
+          delete_after_seconds: rawMeta.deleteAfterSeconds,
           expire_seconds: rawMeta.expireInSeconds,
           name: rawMeta.name,
+          partition: rawMeta.partition,
           policy: rawMeta.policy,
-          retention_minutes: rawMeta.retentionMinutes,
+          retention_seconds: rawMeta.retentionSeconds,
           retry_backoff: rawMeta.retryBackoff,
           retry_delay: rawMeta.retryDelay,
+          retry_delay_max: rawMeta.retryDelayMax,
           retry_limit: rawMeta.retryLimit,
           updated_on: rawMeta.updatedOn,
+          warning_queue_size: rawMeta.warningQueueSize,
         }
       : null;
 
@@ -36,11 +39,17 @@ export const queueDetail = new Hono<Env>().get(
     const counts = await getQueueStateCounts(boss, name);
 
     // schedule info - schedules use the full queue name (e.g., "processPayment")
-    const schedules = (await boss.getSchedules?.()) as QueueSchedule[] | null;
-    const schedule =
-      schedules?.find((s) => s.name === name || s.name.endsWith(`.${name}`)) ??
-      null;
+    const allSchedules = (await boss.getSchedules?.()) as
+      | QueueSchedule[]
+      | null;
+    const schedules = allSchedules?.filter((s) => s.name === name) ?? [];
 
-    return c.html(QueueDetailCard({ counts, meta, schedule }));
+    return c.html(
+      QueueDetailCard({
+        counts,
+        meta,
+        schedules,
+      })
+    );
   }
 );

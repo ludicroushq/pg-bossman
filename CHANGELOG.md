@@ -1,5 +1,11 @@
 # pg-bossman
 
+## 0.1.0
+
+### Minor Changes
+
+- f219ef2: support pg-boss v11
+
 ## 0.0.3
 
 ### Patch Changes

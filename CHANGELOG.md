@@ -1,5 +1,11 @@
 # pg-bossman
 
+## 0.1.1
+
+### Patch Changes
+
+- 4a82b9f: allow empty register
+
 ## 0.1.0
 
 ### Minor Changes

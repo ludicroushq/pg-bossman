@@ -185,10 +185,10 @@ describe("Validation", () => {
       }).toThrow("register requires a non-null object of queues");
     });
 
-    it("should throw error for empty router", () => {
+    it("should allow empty router", () => {
       expect(() => {
-        createBossman({ connectionString: "test" }).register({});
-      }).toThrow("register requires at least one queue");
+        createBossman({ connectionString: "test" }).register({}).build();
+      }).not.toThrow();
     });
 
     it("should accept valid queue names", () => {

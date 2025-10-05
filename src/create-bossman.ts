@@ -482,7 +482,7 @@ class BossmanBuilder<
    * Register queues with the bossman instance
    *
    * @param router - Map of queue names to queue definitions
-   * @throws TypeError if queue names are invalid or router is empty
+   * @throws TypeError if queue names are invalid or router is null
    *
    * @example
    * ```typescript
@@ -497,15 +497,12 @@ class BossmanBuilder<
   register<TNewQueues extends QueuesMap>(
     router: TNewQueues
   ): BossmanBuilder<TNewQueues, TEvents> {
-    // Validate router is not empty
+    // Validate router is provided
     if (!router || typeof router !== "object") {
       throw new TypeError("register requires a non-null object of queues");
     }
 
     const queueNames = Object.keys(router);
-    if (queueNames.length === 0) {
-      throw new TypeError("register requires at least one queue");
-    }
 
     // Validate queue names
     for (const name of queueNames) {

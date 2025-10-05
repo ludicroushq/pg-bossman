@@ -147,6 +147,7 @@ Tests use:
 19. **Multi-schedule Support**: `reconcileSchedules()` now works with `(name, key)` pairs. Every schedule definition must supply a key; reconciliation unschedules leftovers per key, and the dashboard renders each keyed schedule (badge + cron + timezone).
 20. **Dashboard Data Refresh**: Job detail cards surface `expire_seconds`, `delete_after_seconds`, and `retry_delay_max`; queue detail cards show new lifecycle fields (`retention_seconds`, `warning_queue_size`, `partition`). Custom SQL only targets `pgboss.job`—no archive unions remain.
 21. **createPgBoss Defaults**: Constructor defaults align with v11: daily maintenance, supervision enabled, and warning thresholds set to pg-boss defaults.
+22. **Empty Queue Registration**: `.register({})` is now valid; builders can be scaffolded without initial queues, though `.build()` still requires that `.register()` was called.
 
 ## Dashboard
 

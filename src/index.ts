@@ -23,6 +23,7 @@ export type {
   QueueHandler,
   QueueOptions,
   QueueRegistry,
+  QueueSchedule,
   QueuesMap,
   QueueWithoutName,
   SingleQueueDefinition,

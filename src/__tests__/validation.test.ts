@@ -224,7 +224,7 @@ describe("Validation", () => {
   });
 
   describe("Schedule key deduplication", () => {
-    it("should allow multiple schedules with different keys", () => {
+    it("should allow multiple schedules with different keys, specified individually", () => {
       const queue = createQueue()
         .input<{ test: string }>()
         .schedule({
@@ -247,7 +247,7 @@ describe("Validation", () => {
       expect(queue.schedules?.[1]?.key).toBe("schedule2");
     });
 
-    it("should override schedule with same key", () => {
+    it("should override schedule with same key, specified individually", () => {
       const queue = createQueue()
         .input<{ test: string }>()
         .schedule({
@@ -260,6 +260,56 @@ describe("Validation", () => {
           data: { test: "value2" },
           key: "daily",
         })
+        .handler(() => {
+          // Test handler
+          return {};
+        });
+
+      expect(queue.schedules).toHaveLength(1);
+      expect(queue.schedules?.[0]?.key).toBe("daily");
+      expect(queue.schedules?.[0]?.cron).toBe("0 12 * * *");
+      expect(queue.schedules?.[0]?.data).toEqual({ test: "value2" });
+    });
+    it("should allow multiple schedules with different keys, specified as an array", () => {
+      const queue = createQueue()
+        .input<{ test: string }>()
+        .schedules([
+          {
+            cron: "0 0 * * *",
+            data: { test: "value1" },
+            key: "schedule1",
+          },
+          {
+            cron: "0 */6 * * *",
+            data: { test: "value2" },
+            key: "schedule2",
+          },
+        ])
+        .handler(() => {
+          // Test handler
+          return {};
+        });
+
+      expect(queue.schedules).toHaveLength(2);
+      expect(queue.schedules?.[0]?.key).toBe("schedule1");
+      expect(queue.schedules?.[1]?.key).toBe("schedule2");
+    });
+
+    it("should override schedule with same key, specified individually", () => {
+      const queue = createQueue()
+        .input<{ test: string }>()
+        .schedules([
+          {
+            cron: "0 0 * * *",
+            data: { test: "value1" },
+            key: "daily",
+          },
+          {
+            cron: "0 12 * * *",
+            data: { test: "value2" },
+            key: "daily",
+          },
+        ])
         .handler(() => {
           // Test handler
           return {};

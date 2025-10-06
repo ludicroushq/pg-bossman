@@ -328,11 +328,48 @@ describe("Basic Queue Flow", () => {
     expect(allProcessed.some((item) => item.id === 2)).toBe(true);
   });
 
-  it("should support multiple schedules per queue", async () => {
+  it("should support multiple schedules per queue, specified individually", async () => {
     const jobs = {
       scheduledJob: createQueue()
         .schedule({ cron: "* * * * *", key: "default" })
         .schedule({ cron: "*/5 * * * *", key: "five-minutes" })
+        .handler(() => Promise.resolve()),
+    };
+
+    const bossman = createBossman({ db }).register(jobs).build();
+    bossmanInstances.push(bossman);
+
+    const originalOn = process.on;
+    process.on = ((event: string, listener: unknown) => {
+      if (event === "SIGTERM" || event === "SIGINT") {
+        return process;
+      }
+      return originalOn.call(
+        process,
+        event,
+        listener as (...args: unknown[]) => void
+      );
+    }) as typeof process.on;
+
+    await bossman.start();
+    process.on = originalOn;
+
+    const schedules = await bossman.getSchedules();
+    const jobSchedules = schedules.filter((s) => s.name === "scheduledJob");
+    expect(jobSchedules).toHaveLength(2);
+    expect(jobSchedules.map((s) => s.key).sort()).toEqual([
+      "default",
+      "five-minutes",
+    ]);
+  });
+
+  it("should support multiple schedules per queue, specified as an array", async () => {
+    const jobs = {
+      scheduledJob: createQueue()
+        .schedules([
+          { cron: "* * * * *", key: "default" },
+          { cron: "*/5 * * * *", key: "five-minutes" },
+        ])
         .handler(() => Promise.resolve()),
     };
 

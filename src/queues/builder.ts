@@ -124,6 +124,36 @@ export class QueueBuilder<TInput = unknown, TOutput = void> {
     return this;
   }
 
+  /**
+   * Define multiple schedules for this job.
+   *
+   * @param configs - Array of schedule configurations with cron expression, data, and key
+   * @throws TypeError if key is empty or cron expression is invalid
+   *
+   * @example
+   * ```typescript
+   * const job = createQueue()
+   *   .input<{ type: string }>()
+   *   .schedules([{
+   *     key: 'daily',
+   *     cron: '0 0 * * *',  // Every day at midnight
+   *     data: { type: 'daily-report' }
+   *   },{
+   *     key: 'hourly',
+   *     cron: '0 * * * *',  // Every hour
+   *     data: { type: 'hourly-sync' }
+   *   })
+   *   .handler(async (input) => { ... });
+   * ```
+   */
+  schedules(configs: QueueSchedule<TInput>[]): QueueBuilder<TInput, TOutput> {
+    for (const config of configs) {
+      this.schedule(config);
+    }
+
+    return this;
+  }
+
   private upsertSchedule(schedule: QueueSchedule<TInput>) {
     this.queueSchedules = this.queueSchedules.filter(
       (existing) => existing.key !== schedule.key

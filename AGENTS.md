@@ -148,6 +148,7 @@ Tests use:
 20. **Dashboard Data Refresh**: Job detail cards surface `expire_seconds`, `delete_after_seconds`, and `retry_delay_max`; queue detail cards show new lifecycle fields (`retention_seconds`, `warning_queue_size`, `partition`). Custom SQL only targets `pgboss.job`—no archive unions remain.
 21. **createPgBoss Defaults**: Constructor defaults align with v11: daily maintenance, supervision enabled, and warning thresholds set to pg-boss defaults.
 22. **Empty Queue Registration**: `.register({})` is now valid; builders can be scaffolded without initial queues, though `.build()` still requires that `.register()` was called.
+23. **Reusable Schedule Arrays**: Bare `QueueSchedule[]` values represent payload-free schedules and can be applied before declaring queue input. pg-boss 11.1.1 is the minimum supported v11 release so overlapping keyed schedules sharing a cron interval execute independently.
 
 ## Dashboard
 
@@ -236,4 +237,4 @@ const tick = createQueue<void>()
 - **biome**: Linting and formatting
 
 ---
-*Last updated: Prism component imports now include `.js` extensions to fix dashboard bundling in ESM/Vite environments.*
+*Last updated: Reusable schedule arrays are type-safe, and pg-boss 11.1.1 is the minimum supported v11 release.*

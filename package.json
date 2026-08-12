@@ -21,7 +21,7 @@
     "@vvo/tzdb": "^6.186.0",
     "frunk": "^0.0.4",
     "lefthook": "^1.13.6",
-    "pg-boss": "^11.0.4",
+    "pg-boss": "^11.1.1",
     "tsdown": "^0.15.6",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
@@ -61,7 +61,7 @@
   "name": "pg-bossman",
   "packageManager": "pnpm@10.0.0",
   "peerDependencies": {
-    "pg-boss": "^11.0.0"
+    "pg-boss": "^11.1.1"
   },
   "repository": {
     "type": "git",

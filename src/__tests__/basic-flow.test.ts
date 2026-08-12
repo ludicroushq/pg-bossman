@@ -7,6 +7,8 @@ import { createJobCounter, createTestDb } from "../tests/setup";
 const CLEANUP_DELAY_MS = 100;
 const JOB_PROCESSING_DELAY_MS = 1000;
 const BATCH_PROCESSING_DELAY_MS = 3000;
+const SCHEDULE_PROCESSING_TIMEOUT_MS = 5000;
+const SCHEDULE_POLL_INTERVAL_MS = 100;
 const EXPECTED_JOB_COUNT = 5;
 const BATCH_SIZE = 3;
 const HIGH_PRIORITY = 10;
@@ -328,7 +330,7 @@ describe("Basic Queue Flow", () => {
     expect(allProcessed.some((item) => item.id === 2)).toBe(true);
   });
 
-  it("should support multiple schedules per queue", async () => {
+  it("should support multiple schedules per queue, specified individually", async () => {
     const jobs = {
       scheduledJob: createQueue()
         .schedule({ cron: "* * * * *", key: "default" })
@@ -361,6 +363,90 @@ describe("Basic Queue Flow", () => {
       "default",
       "five-minutes",
     ]);
+  });
+
+  it("should support multiple schedules per queue, specified as an array", async () => {
+    const jobs = {
+      scheduledJob: createQueue()
+        .schedules([
+          { cron: "* * * * *", key: "default" },
+          { cron: "*/5 * * * *", key: "five-minutes" },
+        ])
+        .handler(() => Promise.resolve()),
+    };
+
+    const bossman = createBossman({ db }).register(jobs).build();
+    bossmanInstances.push(bossman);
+
+    const originalOn = process.on;
+    process.on = ((event: string, listener: unknown) => {
+      if (event === "SIGTERM" || event === "SIGINT") {
+        return process;
+      }
+      return originalOn.call(
+        process,
+        event,
+        listener as (...args: unknown[]) => void
+      );
+    }) as typeof process.on;
+
+    await bossman.start();
+    process.on = originalOn;
+
+    const schedules = await bossman.getSchedules();
+    const jobSchedules = schedules.filter((s) => s.name === "scheduledJob");
+    expect(jobSchedules).toHaveLength(2);
+    expect(jobSchedules.map((s) => s.key).sort()).toEqual([
+      "default",
+      "five-minutes",
+    ]);
+  });
+
+  it("should execute overlapping keyed schedules independently", async () => {
+    let executions = 0;
+    const jobs = {
+      scheduledJob: createQueue()
+        .schedules([
+          { cron: "* * * * *", key: "first" },
+          { cron: "* * * * *", key: "second" },
+        ])
+        .handler(() => {
+          executions += 1;
+        }),
+    };
+
+    const bossman = createBossman({
+      cronMonitorIntervalSeconds: 1,
+      cronWorkerIntervalSeconds: 1,
+      db,
+    })
+      .register(jobs)
+      .build();
+    bossmanInstances.push(bossman);
+
+    const originalOn = process.on;
+    process.on = ((event: string, listener: unknown) => {
+      if (event === "SIGTERM" || event === "SIGINT") {
+        return process;
+      }
+      return originalOn.call(
+        process,
+        event,
+        listener as (...args: unknown[]) => void
+      );
+    }) as typeof process.on;
+
+    await bossman.start();
+    process.on = originalOn;
+
+    const deadline = Date.now() + SCHEDULE_PROCESSING_TIMEOUT_MS;
+    while (executions < 2 && Date.now() < deadline) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, SCHEDULE_POLL_INTERVAL_MS)
+      );
+    }
+
+    expect(executions).toBe(2);
   });
 
   it("should support nested routers", async () => {

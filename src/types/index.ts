@@ -36,7 +36,7 @@ export type QueueDefinition<TInput = unknown, TOutput = void> =
   | BatchQueueDefinition<TInput, TOutput>;
 
 // Optional attached schedule config on a queue
-export type QueueSchedule<TInput = unknown> = {
+export type QueueSchedule<TInput = never> = {
   key: string;
   cron: string;
   data?: TInput;

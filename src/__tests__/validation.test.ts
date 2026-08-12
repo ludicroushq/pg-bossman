@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBossman, createQueue } from "../index";
+import { createBossman, createQueue, type QueueSchedule } from "../index";
 
 describe("Validation", () => {
   describe("createQueue validation", () => {
@@ -285,6 +285,31 @@ describe("Validation", () => {
             key: "schedule2",
           },
         ])
+        .handler(() => {
+          // Test handler
+          return {};
+        });
+
+      expect(queue.schedules).toHaveLength(2);
+      expect(queue.schedules?.[0]?.key).toBe("schedule1");
+      expect(queue.schedules?.[1]?.key).toBe("schedule2");
+    });
+
+    it("should accept a reusable QueueSchedule array", () => {
+      const schedules: QueueSchedule[] = [
+        {
+          cron: "0 0 * * *",
+          key: "schedule1",
+        },
+        {
+          cron: "0 */6 * * *",
+          key: "schedule2",
+        },
+      ];
+
+      const queue = createQueue()
+        .schedules(schedules)
+        .input<{ test: string }>()
         .handler(() => {
           // Test handler
           return {};

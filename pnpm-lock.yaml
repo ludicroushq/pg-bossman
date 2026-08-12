@@ -49,8 +49,8 @@ importers:
         specifier: ^1.13.6
         version: 1.13.6
       pg-boss:
-        specifier: ^11.0.4
-        version: 11.0.4
+        specifier: ^11.1.1
+        version: 11.1.1
       tsdown:
         specifier: ^0.15.6
         version: 0.15.6(typescript@5.9.3)
@@ -974,9 +974,9 @@ packages:
     resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
     engines: {node: ^14.18.0 || >=16.10.0}
 
-  cron-parser@4.9.0:
-    resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
-    engines: {node: '>=12.0.0'}
+  cron-parser@5.8.1:
+    resolution: {integrity: sha512-fVw5nGEkTVmiPKo3fY0j28Thq6jR00VKWyL22llWrsbII4sDHI+8Kx1kcL+QzGQJfCfk64bbMotrgTZRpzYpLQ==}
+    engines: {node: '>=18'}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -1451,8 +1451,8 @@ packages:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
 
-  pg-boss@11.0.4:
-    resolution: {integrity: sha512-G+MXscT6bCap5/AwQId0MN9syStdFE0uKDUnbvNF5AGhMZf5OlV/62Xp9Flyo9CRDXMYvtEzZByCfj3a1xrgZQ==}
+  pg-boss@11.1.1:
+    resolution: {integrity: sha512-SGb53nY4tQCmPN6qNfSHCF6zRRmNTDOd6eARKkTEj99gdGsL4SW+F02679oAaSBnc16VAD8JghhLwc4hiT5oCg==}
     engines: {node: '>=22'}
 
   pg-cloudflare@1.2.7:
@@ -2680,7 +2680,7 @@ snapshots:
 
   consola@3.4.2: {}
 
-  cron-parser@4.9.0:
+  cron-parser@5.8.1:
     dependencies:
       luxon: 3.7.2
 
@@ -3140,9 +3140,9 @@ snapshots:
 
   pathval@2.0.1: {}
 
-  pg-boss@11.0.4:
+  pg-boss@11.1.1:
     dependencies:
-      cron-parser: 4.9.0
+      cron-parser: 5.8.1
       pg: 8.16.3
       serialize-error: 8.1.0
     transitivePeerDependencies:
